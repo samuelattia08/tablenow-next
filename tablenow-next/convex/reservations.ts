@@ -71,3 +71,16 @@ export const listReservedTableNumbers = query({
     return reservations.map((r) => r.tableId);
   },
 });
+
+export const assertAvailable = query({
+  args: { partnerId: v.id("partners"), date: v.string(), tableId: v.string() },
+  handler: async (ctx, args) => {
+    const reservations = await ctx.db.query("reservations")
+      .withIndex("by_partner_date", q => q.eq("partnerId", args.partnerId).eq("date", args.date))
+      .collect();
+    if (reservations.some(r => r.tableId === args.tableId && r.status !== "cancelled")) {
+      throw new Error("Cette table est déjà réservée pour cette date.");
+    }
+    return true;
+  },
+});
