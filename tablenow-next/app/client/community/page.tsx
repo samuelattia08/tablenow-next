@@ -33,7 +33,7 @@ export default function CommunityPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
 
-  const feed = useQuery(api.community.listFeed, {});
+  const feed = useQuery(api.community.listFeed, clientId ? {} : "skip");
   const createPost = useMutation(api.community.createPost);
   const generateUploadUrl = useMutation(api.community.generateUploadUrl);
   const toggleLike = useMutation(api.community.toggleLike);
