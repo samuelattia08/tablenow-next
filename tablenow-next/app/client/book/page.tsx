@@ -84,7 +84,7 @@ export default function BookPage() {
     setError(null);
     try {
       const { clientSecret } = await createPaymentIntent({
-        amountEur: selectedTable.priceEur,
+        partnerId,\n        date,\n        partySize,\n        amountEur: selectedTable.priceEur,
         tableNumber: selectedTable.number,
         clubName: clubs?.find((c) => c._id === partnerId)?.clubName ?? "",
       });
@@ -202,7 +202,7 @@ export default function BookPage() {
           )}
           {grid && (
             <div
-              className="grid gap-1.5 sm:gap-2 min-w-[520px]"
+              className="grid gap-1 sm:gap-2 w-full"
               style={{
                 gridTemplateColumns: `repeat(${grid[0]?.length ?? 10}, minmax(0, 1fr))`,
               }}
@@ -221,7 +221,7 @@ export default function BookPage() {
                       aria-pressed={isSelected}
                       aria-label={`Table ${t.number}, zone ${t.zone}, ${t.capacity} personnes, ${t.priceEur} euros${isReserved ? ", déjà réservée" : ""}`}
                       className={[
-                        "aspect-square rounded-md text-[10px] sm:text-xs font-semibold flex items-center justify-center transition-all",
+                        "aspect-square rounded-md text-[9px] sm:text-xs font-semibold flex items-center justify-center transition-all",
                         isReserved
                           ? "bg-surface-alt border border-border opacity-40 cursor-not-allowed"
                           : t.zone === "vip"
