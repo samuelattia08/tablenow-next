@@ -1,5 +1,6 @@
 import { internalMutation, query } from "./_generated/server";
 import { requireAccount } from "./sessions";
+import { closedDate } from "./availability";
 import { v } from "convex/values";
 
 export const holdForCapture = internalMutation({
@@ -34,6 +35,8 @@ export const holdForCapture = internalMutation({
       }
       throw new Error("Ce paiement a déjà été utilisé.");
     }
+
+    if (await closedDate(ctx, args.partnerId, args.date)) return null;
 
     const sameDatePartner = await ctx.db
       .query("reservations")
@@ -105,6 +108,11 @@ export const listByPartnerAndDate = query({
 export const listReservedTableNumbers = query({
   args: { partnerId: v.id("partners"), date: v.string() },
   handler: async (ctx, args) => {
+    if (await closedDate(ctx, args.partnerId, args.date)) {
+      const tables = await ctx.db.query("tables")
+        .withIndex("by_partner", (q) => q.eq("partnerId", args.partnerId)).collect();
+      return tables.map((table) => String(table.number));
+    }
     const reservations = await ctx.db
       .query("reservations")
       .withIndex("by_partner_date", (q) =>
@@ -119,6 +127,9 @@ export const listReservedTableNumbers = query({
 export const assertAvailable = query({
   args: { partnerId: v.id("partners"), date: v.string(), tableId: v.string() },
   handler: async (ctx, args) => {
+    if (await closedDate(ctx, args.partnerId, args.date)) {
+      throw new Error("Les réservations sont fermées pour cette date.");
+    }
     const reservations = await ctx.db.query("reservations")
       .withIndex("by_partner_date", q => q.eq("partnerId", args.partnerId).eq("date", args.date))
       .collect();

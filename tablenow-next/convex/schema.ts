@@ -45,6 +45,11 @@ export default defineSchema({
     .index("by_partner", ["partnerId"])
     .index("by_published_country_city", ["published", "country", "city"]),
 
+  closedBookingDates: defineTable({
+    partnerId: v.id("partners"),
+    date: v.string(),
+  }).index("by_partner_date", ["partnerId", "date"]),
+
   venueEvents: defineTable({
     partnerId: v.id("partners"),
     name: v.string(),

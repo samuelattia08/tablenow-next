@@ -120,3 +120,12 @@ body {
     radial-gradient(ellipse at 45% 0%, rgb(39 64 166 / 32%), transparent 58%),
     var(--bg);
 }
+
+
+.nightlife-hero, .explore-banner {
+  background:
+    linear-gradient(125deg, rgb(7 12 27 / 89%), rgb(7 12 27 / 67%)),
+    linear-gradient(to top, var(--bg), transparent 60%),
+    url("/nightlife-hero.webp") center / cover no-repeat,
+    var(--bg);
+}

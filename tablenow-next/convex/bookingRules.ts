@@ -1,8 +1,4 @@
-export function validateBookingSelection(
-  date: string,
-  partySize: number,
-  table: { capacity: number; priceEur: number },
-) {
+export function validateBookingDate(date: string) {
   const parsed = new Date(date);
   if (
     !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
@@ -11,6 +7,15 @@ export function validateBookingSelection(
   ) {
     throw new Error("Date de réservation invalide.");
   }
+
+}
+
+export function validateBookingSelection(
+  date: string,
+  partySize: number,
+  table: { capacity: number; priceEur: number },
+) {
+  validateBookingDate(date);
 
   if (!Number.isInteger(partySize) || partySize < 1 || partySize > table.capacity) {
     throw new Error("Nombre de personnes invalide.");

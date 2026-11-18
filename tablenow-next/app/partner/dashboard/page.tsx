@@ -83,6 +83,8 @@ export default function PartnerDashboardPage() {
         </h1>
         <p className="mt-1 text-sm text-muted">Tableau de bord partenaire</p>
 
+        <Link href="/partner/venue" className="back-link">Gérer la fiche publique et les soirées</Link>
+
         {/* Profil du club */}
         <div className="card mt-6 p-5">
           <h2 className="text-sm font-semibold">Profil du club</h2>

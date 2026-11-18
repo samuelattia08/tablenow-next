@@ -8,15 +8,17 @@ export default function ChooserPage() {
   const { t } = useLanguage();
 
   return (
-    <main className="flex-1 flex items-center justify-center chooser-background px-5 pb-14 pt-24 sm:px-6 relative">
+    <main className="flex-1 flex items-center justify-center nightlife-hero min-h-svh px-5 pb-14 pt-24 sm:px-6 relative">
+      <Link href="/" className="absolute top-5 start-5 font-display text-xl font-bold">TABLE <span className="gradient-text">NOW</span></Link>
       <div className="absolute top-5 end-5">
         <LanguageSwitcher />
       </div>
       <div className="w-full max-w-md text-center">
         <h1 className="font-display text-5xl sm:text-7xl font-bold tracking-tight">
-          TABLE <span className="gradient-text">NOW</span>
+          {t("hero.title")}
         </h1>
-        <p className="mt-3 text-muted">{t("chooser.tagline")}</p>
+        <p className="mt-3 text-slate-200">{t("hero.subtitle")}</p>
+        <Link href="/explore" className="btn-primary mt-6 inline-flex min-h-12 items-center px-7">{t("hero.explore")}</Link>
 
         <div className="mt-10 flex flex-col gap-4 text-start">
           <Link

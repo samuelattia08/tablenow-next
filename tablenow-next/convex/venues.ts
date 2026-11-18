@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireAccount } from "./sessions";
+import { closedDate } from "./availability";
 import { venueFields } from "./venueFields";
 
 function publicLink(input: string) {
@@ -124,11 +125,15 @@ export const search = query({
       if (!partner || (args.eventsOnly && !events.length)) return null;
       const suitable = tables.filter((table) => table.capacity >= args.guests);
       const singleDay = args.from && args.from === args.to;
-      const bookings = singleDay ? await ctx.db.query("reservations")
-        .withIndex("by_partner_date", (q) => q.eq("partnerId", venue.partnerId).eq("date", from)).collect() : [];
+      const [closed, bookings] = singleDay ? await Promise.all([
+        closedDate(ctx, venue.partnerId, from),
+        ctx.db.query("reservations")
+          .withIndex("by_partner_date", (q) => q.eq("partnerId", venue.partnerId).eq("date", from)).collect(),
+      ]) : [null, []];
       const taken = new Set(bookings.filter((booking) => booking.status !== "cancelled").map((booking) => booking.tableId));
-      const openings = suitable.filter((table) => !taken.has(String(table.number)));
+      const openings = closed ? [] : suitable.filter((table) => !taken.has(String(table.number)));
       if (args.availableOnly && (!singleDay || !openings.length)) return null;
+      const pricedTables = singleDay && openings.length ? openings : suitable;
       const firstPhoto = partner.galleryStorageIds?.[0];
       return {
         partnerId: venue.partnerId,
@@ -139,7 +144,7 @@ export const search = query({
         photo: firstPhoto ? await ctx.storage.getUrl(firstPhoto) : null,
         event: events[0] ?? null,
         availableOnSelectedDate: Boolean(singleDay && openings.length),
-        tableFrom: suitable.length ? Math.min(...suitable.map((table) => table.priceEur)) : null,
+        tableFrom: pricedTables.length ? Math.min(...pricedTables.map((table) => table.priceEur)) : null,
       };
     }));
     return results.filter((venue) => venue !== null);

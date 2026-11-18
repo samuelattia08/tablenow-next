@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireAccount } from "./sessions";
-import { validateBookingSelection } from "./bookingRules";
+import { validateBookingDate } from "./bookingRules";
 
 export const mine = query({
   args: { token: v.string() },
@@ -27,7 +27,7 @@ export const save = mutation({
     if (!name || !/^([01]\d|2[0-3]):[0-5]\d$/.test(args.startTime)) {
       throw new ConvexError("Indique le nom et l’heure de la soirée.");
     }
-    validateBookingSelection(args.date, 1, { capacity: 1, priceEur: 1 });
+    validateBookingDate(args.date);
     const event = { partnerId, name: name.slice(0, 120), date: args.date, startTime: args.startTime,
       description: args.description.trim().slice(0, 1200), published: args.published };
     if (!args.eventId) return ctx.db.insert("venueEvents", event);
