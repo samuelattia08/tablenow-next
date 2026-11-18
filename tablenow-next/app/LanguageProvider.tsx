@@ -4,7 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
-  useState,
+  useSyncExternalStore,
   ReactNode,
 } from "react";
 import { Lang, LANGUAGES, RTL_LANGS, t as translate } from "@/lib/i18n";
@@ -24,13 +24,26 @@ function detectBrowserLang(): Lang {
   return supported.includes(browserLang) ? browserLang : "fr";
 }
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("fr");
+function subscribeLanguage(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener("tablenow:language", onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener("tablenow:language", onChange);
+  };
+}
 
-  useEffect(() => {
-    const stored = localStorage.getItem("tablenow_lang") as Lang | null;
-    setLangState(stored ?? detectBrowserLang());
-  }, []);
+function getLanguage(): Lang {
+  const stored = localStorage.getItem("tablenow_lang");
+  return LANGUAGES.find(({ code }) => code === stored)?.code ?? detectBrowserLang();
+}
+
+function getServerLanguage(): Lang {
+  return "fr";
+}
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const lang = useSyncExternalStore(subscribeLanguage, getLanguage, getServerLanguage);
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -38,8 +51,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [lang]);
 
   function setLang(newLang: Lang) {
-    setLangState(newLang);
     localStorage.setItem("tablenow_lang", newLang);
+    window.dispatchEvent(new Event("tablenow:language"));
   }
 
   return (

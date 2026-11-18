@@ -1,4 +1,5 @@
-import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { type MutationCtx, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import bcrypt from "bcryptjs";
 
@@ -102,7 +103,7 @@ export const addGalleryPhoto = mutation({
   },
 });
 
-function seedTablesForPartner(ctx: any, partnerId: any) {
+function seedTablesForPartner(ctx: MutationCtx, partnerId: Id<"partners">) {
   const COLS = 10;
   const ROWS = 5; // 10 x 5 = 50 tables
   let number = 1;

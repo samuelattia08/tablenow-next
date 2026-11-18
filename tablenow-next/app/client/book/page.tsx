@@ -1,14 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMemo, useState } from "react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import Link from "next/link";
+import { useStoredAccount } from "@/lib/use-stored-account";
 import { useRouter } from "next/navigation";
-import { PaymentModal } from "@/components/PaymentModal";
+import { clientAuthHref } from "@/lib/client-navigation";
+import dynamic from "next/dynamic";
 import { useLanguage } from "@/app/LanguageProvider";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+
+const PaymentModal = dynamic(
+  () => import("@/components/PaymentModal").then((module) => module.PaymentModal),
+);
+
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -17,8 +24,8 @@ function todayIso() {
 export default function BookPage() {
   const router = useRouter();
   const { t } = useLanguage();
-  const [clientId, setClientId] = useState<Id<"clients"> | null>(null);
-  const [partnerId, setPartnerId] = useState<Id<"partners"> | null>(null);
+  const clientId = useStoredAccount<"clients">("tablenow_client_id", clientAuthHref("login", "/client/book"));
+  const [selectedPartnerId, setPartnerId] = useState<Id<"partners"> | null>(null);
   const [date, setDate] = useState(todayIso());
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
   const [partySize, setPartySize] = useState(2);
@@ -26,16 +33,9 @@ export default function BookPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    const stored = localStorage.getItem("tablenow_client_id");
-    if (!stored) {
-      router.push("/client/login");
-      return;
-    }
-    setClientId(stored as Id<"clients">);
-  }, [router]);
 
-  const clubs = useQuery(api.partners.listPublic);
+  const clubs = useQuery(api.partners.listPublic, clientId ? {} : "skip");
+  const partnerId = selectedPartnerId ?? clubs?.[0]?._id;
   const tables = useQuery(
     api.tables.listByPartner,
     partnerId ? { partnerId } : "skip"
@@ -50,12 +50,6 @@ export default function BookPage() {
   );
   const [paymentSecret, setPaymentSecret] = useState<string | null>(null);
 
-  // Auto-select the first club once loaded
-  useEffect(() => {
-    if (!partnerId && clubs && clubs.length > 0) {
-      setPartnerId(clubs[0]._id);
-    }
-  }, [clubs, partnerId]);
 
   const reservedSet = useMemo(
     () => new Set(reservedTableIds ?? []),
@@ -84,7 +78,10 @@ export default function BookPage() {
     setError(null);
     try {
       const { clientSecret } = await createPaymentIntent({
-        partnerId,\n        date,\n        partySize,\n        amountEur: selectedTable.priceEur,
+        partnerId,
+        date,
+        partySize,
+        clientId,
         tableNumber: selectedTable.number,
         clubName: clubs?.find((c) => c._id === partnerId)?.clubName ?? "",
       });
@@ -151,12 +148,14 @@ export default function BookPage() {
         {/* Club + date selectors */}
         <div className="mt-4 flex flex-col sm:flex-row gap-3">
           <select
+            aria-label={t("book.club")}
+            disabled={confirming || !!paymentSecret}
             value={partnerId ?? ""}
             onChange={(e) => {
               setPartnerId(e.target.value as Id<"partners">);
               setSelectedTableNumber(null);
             }}
-            className="input-field px-3 py-2.5 text-sm flex-1"
+            className="input-field min-h-11 min-w-0 px-3 py-2.5 text-base flex-1"
           >
             {clubs === undefined && <option>{t("reservations.loading")}</option>}
             {clubs?.map((c) => (
@@ -168,13 +167,15 @@ export default function BookPage() {
 
           <input
             type="date"
+            aria-label={t("book.date")}
+            disabled={confirming || !!paymentSecret}
             value={date}
             min={todayIso()}
             onChange={(e) => {
               setDate(e.target.value);
               setSelectedTableNumber(null);
             }}
-            className="input-field px-3 py-2.5 text-sm"
+            className="input-field min-h-11 min-w-0 px-3 py-2.5 text-base"
           />
         </div>
 
@@ -216,7 +217,7 @@ export default function BookPage() {
                     <button
                       key={t._id}
                       type="button"
-                      disabled={isReserved}
+                      disabled={isReserved || confirming || !!paymentSecret}
                       onClick={() => setSelectedTableNumber(t.number)}
                       aria-pressed={isSelected}
                       aria-label={`Table ${t.number}, zone ${t.zone}, ${t.capacity} personnes, ${t.priceEur} euros${isReserved ? ", déjà réservée" : ""}`}
@@ -264,6 +265,7 @@ export default function BookPage() {
               <input
                 id="partySize"
                 type="number"
+                disabled={confirming || !!paymentSecret}
                 min={1}
                 max={selectedTable.capacity}
                 value={partySize}
@@ -285,7 +287,7 @@ export default function BookPage() {
 
             <button
               onClick={handleConfirm}
-              disabled={confirming}
+              disabled={confirming || !!paymentSecret || !date || !reservedTableIds || reservedSet.has(String(selectedTable.number)) || !Number.isInteger(partySize) || partySize < 1 || partySize > selectedTable.capacity}
               className="btn-primary mt-4 w-full py-2.5 text-sm disabled:opacity-60"
             >
               {confirming

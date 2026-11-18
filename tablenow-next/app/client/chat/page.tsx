@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useStoredAccount } from "@/lib/use-stored-account";
+import { clientAuthHref } from "@/lib/client-navigation";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -18,7 +19,6 @@ une question sort de ce périmètre, propose gentiment de vérifier et de
 revenir vers eux vite.`;
 
 export default function ChatPage() {
-  const router = useRouter();
   const askHost = useAction(api.chat.askHost);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -31,12 +31,7 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const clientId = localStorage.getItem("tablenow_client_id");
-    if (!clientId) {
-      router.push("/client/login");
-    }
-  }, [router]);
+  useStoredAccount<"clients">("tablenow_client_id", clientAuthHref("login", "/client/chat"));
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

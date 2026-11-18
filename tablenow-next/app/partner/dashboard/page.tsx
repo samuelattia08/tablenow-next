@@ -1,29 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import Link from "next/link";
+import { useStoredAccount } from "@/lib/use-stored-account";
 import { useRouter } from "next/navigation";
 
 export default function PartnerDashboardPage() {
   const router = useRouter();
-  const [partnerId, setPartnerId] = useState<Id<"partners"> | null>(null);
-  const [city, setCity] = useState("");
-  const [instagram, setInstagram] = useState("");
-  const [tiktok, setTiktok] = useState("");
+  const partnerId = useStoredAccount<"partners">("tablenow_partner_id", "/partner/login");
+  const [cityDraft, setCity] = useState<string>();
+  const [instagramDraft, setInstagram] = useState<string>();
+  const [tiktokDraft, setTiktok] = useState<string>();
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  useEffect(() => {
-    const stored = localStorage.getItem("tablenow_partner_id");
-    if (!stored) {
-      router.push("/partner/login");
-      return;
-    }
-    setPartnerId(stored as Id<"partners">);
-  }, [router]);
 
   const partner = useQuery(
     api.partners.getById,
@@ -35,13 +28,9 @@ export default function PartnerDashboardPage() {
   );
   const addGalleryPhoto = useMutation(api.partners.addGalleryPhoto);
 
-  useEffect(() => {
-    if (partner) {
-      setCity(partner.city ?? "");
-      setInstagram(partner.instagram ?? "");
-      setTiktok(partner.tiktok ?? "");
-    }
-  }, [partner]);
+  const city = cityDraft ?? partner?.city ?? "";
+  const instagram = instagramDraft ?? partner?.instagram ?? "";
+  const tiktok = tiktokDraft ?? partner?.tiktok ?? "";
 
   function handleLogout() {
     localStorage.removeItem("tablenow_partner_id");
@@ -188,7 +177,7 @@ export default function PartnerDashboardPage() {
         {/* Ce que disent tes clients */}
         <div className="mt-6">
           <h2 className="text-sm font-semibold">Ce que disent tes clients</h2>
-          <CommunityFeedPreview partnerId={partnerId} />
+          <CommunityFeedPreview partnerId={partnerId ?? null} />
         </div>
       </div>
     </main>

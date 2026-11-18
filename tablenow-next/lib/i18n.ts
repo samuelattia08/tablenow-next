@@ -16,6 +16,9 @@ type Dict = Record<string, string>;
 
 export const translations: Record<Lang, Dict> = {
   fr: {
+    "book.club": "Club",
+    "book.date": "Date",
+    "nav.home": "Retour à l’accueil",
     "chooser.tagline": "Choisis ton espace",
     "chooser.client": "👤 Espace client",
     "chooser.clientSub": "Réserve ta table, gère ton compte",
@@ -75,6 +78,9 @@ export const translations: Record<Lang, Dict> = {
     "nav.language": "Langue",
   },
   en: {
+    "book.club": "Venue",
+    "book.date": "Date",
+    "nav.home": "Back to home",
     "chooser.tagline": "Choose your space",
     "chooser.client": "👤 Client area",
     "chooser.clientSub": "Book your table, manage your account",
@@ -134,6 +140,9 @@ export const translations: Record<Lang, Dict> = {
     "nav.language": "Language",
   },
   es: {
+    "book.club": "Club",
+    "book.date": "Fecha",
+    "nav.home": "Volver al inicio",
     "chooser.tagline": "Elige tu espacio",
     "chooser.client": "👤 Espacio cliente",
     "chooser.clientSub": "Reserva tu mesa, gestiona tu cuenta",
@@ -193,6 +202,9 @@ export const translations: Record<Lang, Dict> = {
     "nav.language": "Idioma",
   },
   pt: {
+    "book.club": "Clube",
+    "book.date": "Data",
+    "nav.home": "Voltar ao início",
     "chooser.tagline": "Escolha o seu espaço",
     "chooser.client": "👤 Área do cliente",
     "chooser.clientSub": "Reserve a sua mesa, gerencie a sua conta",
@@ -252,6 +264,9 @@ export const translations: Record<Lang, Dict> = {
     "nav.language": "Idioma",
   },
   he: {
+    "book.club": "מועדון",
+    "book.date": "תאריך",
+    "nav.home": "חזרה לדף הבית",
     "chooser.tagline": "בחר את האזור שלך",
     "chooser.client": "👤 אזור לקוחות",
     "chooser.clientSub": "הזמן שולחן, נהל את החשבון שלך",
@@ -311,6 +326,9 @@ export const translations: Record<Lang, Dict> = {
     "nav.language": "שפה",
   },
   de: {
+    "book.club": "Club",
+    "book.date": "Datum",
+    "nav.home": "Zur Startseite",
     "chooser.tagline": "Wähle deinen Bereich",
     "chooser.client": "👤 Kundenbereich",
     "chooser.clientSub": "Reserviere deinen Tisch, verwalte dein Konto",
@@ -370,6 +388,9 @@ export const translations: Record<Lang, Dict> = {
     "nav.language": "Sprache",
   },
   ru: {
+    "book.club": "Клуб",
+    "book.date": "Дата",
+    "nav.home": "На главную",
     "chooser.tagline": "Выберите свой раздел",
     "chooser.client": "👤 Личный кабинет",
     "chooser.clientSub": "Забронируйте стол, управляйте аккаунтом",

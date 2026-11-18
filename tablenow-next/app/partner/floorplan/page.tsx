@@ -1,29 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useStoredAccount } from "@/lib/use-stored-account";
 
 export default function PartnerFloorPlanPage() {
-  const router = useRouter();
-  const [partnerId, setPartnerId] = useState<Id<"partners"> | null>(null);
+  const partnerId = useStoredAccount<"partners">("tablenow_partner_id", "/partner/login");
   const [selectedId, setSelectedId] = useState<Id<"tables"> | null>(null);
   const [zone, setZone] = useState("standard");
   const [capacity, setCapacity] = useState(4);
   const [priceEur, setPriceEur] = useState(180);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    const stored = localStorage.getItem("tablenow_partner_id");
-    if (!stored) {
-      router.push("/partner/login");
-      return;
-    }
-    setPartnerId(stored as Id<"partners">);
-  }, [router]);
 
   const tables = useQuery(
     api.tables.listByPartner,

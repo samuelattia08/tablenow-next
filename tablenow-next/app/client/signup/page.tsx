@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/app/LanguageProvider";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ClientBackLink } from "@/components/ClientBackLink";
+import { clientAuthHref, clientDestination } from "@/lib/client-navigation";
 
-export default function ClientSignupPage() {
+function ClientSignupPage() {
   const signup = useMutation(api.clients.signup);
   const router = useRouter();
+  const destination = clientDestination(useSearchParams().get("next"));
   const { t, lang } = useLanguage();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -34,7 +37,7 @@ export default function ClientSignupPage() {
         lang,
       });
       localStorage.setItem("tablenow_client_id", result.clientId);
-      router.push("/client/reservations");
+      router.replace(destination);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue.");
     } finally {
@@ -43,7 +46,7 @@ export default function ClientSignupPage() {
   }
 
   return (
-    <main className="flex-1 flex items-center justify-center px-6 py-24">
+    <main className="flex-1 flex items-center justify-center px-4 py-10 sm:px-6 sm:py-20">
       <div className="w-full max-w-sm">
         <div className="flex items-center justify-between">
           <Link href="/" className="font-display text-2xl font-bold">
@@ -52,7 +55,8 @@ export default function ClientSignupPage() {
           <LanguageSwitcher />
         </div>
 
-        <div className="card mt-8 p-6">
+        <ClientBackLink href="/" label={t("nav.home")} />
+        <div className="card mt-8 p-5 sm:p-6">
           <h1 className="text-xl font-semibold">{t("signup.title")}</h1>
           <p className="mt-1 text-sm text-muted">{t("signup.sub")}</p>
 
@@ -64,10 +68,11 @@ export default function ClientSignupPage() {
                 </label>
                 <input
                   id="firstName"
+                autoComplete="given-name"
                   required
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="input-field mt-1.5 w-full px-3 py-2.5 text-sm"
+                  className="input-field mt-1.5 w-full px-3 py-2.5 text-base"
                 />
               </div>
               <div>
@@ -76,10 +81,11 @@ export default function ClientSignupPage() {
                 </label>
                 <input
                   id="lastName"
+                autoComplete="family-name"
                   required
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  className="input-field mt-1.5 w-full px-3 py-2.5 text-sm"
+                  className="input-field mt-1.5 w-full px-3 py-2.5 text-base"
                 />
               </div>
             </div>
@@ -90,11 +96,12 @@ export default function ClientSignupPage() {
               </label>
               <input
                 id="email"
+                autoComplete="email"
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="input-field mt-1.5 w-full px-3 py-2.5 text-sm"
+                className="input-field mt-1.5 w-full px-3 py-2.5 text-base"
                 placeholder="toi@exemple.com"
               />
             </div>
@@ -105,10 +112,11 @@ export default function ClientSignupPage() {
               </label>
               <input
                 id="phone"
+                autoComplete="tel"
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="input-field mt-1.5 w-full px-3 py-2.5 text-sm"
+                className="input-field mt-1.5 w-full px-3 py-2.5 text-base"
                 placeholder="+33 6 12 34 56 78"
               />
             </div>
@@ -119,12 +127,13 @@ export default function ClientSignupPage() {
               </label>
               <input
                 id="password"
+                autoComplete="new-password"
                 type="password"
                 required
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="input-field mt-1.5 w-full px-3 py-2.5 text-sm"
+                className="input-field mt-1.5 w-full px-3 py-2.5 text-base"
                 placeholder={t("signup.passwordHint")}
               />
             </div>
@@ -138,7 +147,7 @@ export default function ClientSignupPage() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary mt-2 w-full py-2.5 text-sm disabled:opacity-60"
+              className="btn-primary mt-2 w-full py-2.5 min-h-11 text-sm disabled:opacity-60"
             >
               {loading ? t("signup.submitting") : t("signup.submit")}
             </button>
@@ -146,12 +155,20 @@ export default function ClientSignupPage() {
 
           <p className="mt-5 text-center text-sm text-muted">
             {t("signup.hasAccount")}{" "}
-            <Link href="/client/login" className="text-blue hover:underline">
+            <Link href={clientAuthHref("login", destination)} replace className="text-blue hover:underline">
               {t("signup.login")}
             </Link>
           </p>
         </div>
       </div>
     </main>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense>
+      <ClientSignupPage />
+    </Suspense>
   );
 }

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useStoredAccount } from "@/lib/use-stored-account";
+import { clientAuthHref } from "@/lib/client-navigation";
 import { useLanguage } from "@/app/LanguageProvider";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
@@ -21,9 +22,8 @@ function timeAgo(ts: number, lang: string) {
 }
 
 export default function CommunityPage() {
-  const router = useRouter();
   const { t, lang } = useLanguage();
-  const [clientId, setClientId] = useState<Id<"clients"> | null>(null);
+  const clientId = useStoredAccount<"clients">("tablenow_client_id", clientAuthHref("login", "/client/community"));
   const [content, setContent] = useState("");
   const [rating, setRating] = useState(0);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -32,14 +32,6 @@ export default function CommunityPage() {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const stored = localStorage.getItem("tablenow_client_id");
-    if (!stored) {
-      router.push("/client/login");
-      return;
-    }
-    setClientId(stored as Id<"clients">);
-  }, [router]);
 
   const feed = useQuery(api.community.listFeed, {});
   const createPost = useMutation(api.community.createPost);
@@ -192,7 +184,7 @@ export default function CommunityPage() {
             <PostCard
               key={post._id}
               post={post}
-              clientId={clientId}
+              clientId={clientId ?? null}
               lang={lang}
               onToggleLike={() =>
                 clientId && toggleLike({ postId: post._id, clientId })

@@ -8,17 +8,17 @@ export default function ChooserPage() {
   const { t } = useLanguage();
 
   return (
-    <main className="flex-1 flex items-center justify-center px-6 py-24 relative">
-      <div className="absolute top-6 right-6">
+    <main className="flex-1 flex items-center justify-center chooser-background px-5 pb-14 pt-24 sm:px-6 relative">
+      <div className="absolute top-5 end-5">
         <LanguageSwitcher />
       </div>
       <div className="w-full max-w-md text-center">
-        <h1 className="font-display text-5xl font-bold tracking-tight">
+        <h1 className="font-display text-5xl sm:text-7xl font-bold tracking-tight">
           TABLE <span className="gradient-text">NOW</span>
         </h1>
         <p className="mt-3 text-muted">{t("chooser.tagline")}</p>
 
-        <div className="mt-10 flex flex-col gap-4 text-left">
+        <div className="mt-10 flex flex-col gap-4 text-start">
           <Link
             href="/client/login"
             className="card p-6 hover:border-blue/50 transition-colors focus-visible:outline-2 focus-visible:outline-blue"

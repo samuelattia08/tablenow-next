@@ -1,7 +1,7 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-export const create = mutation({
+export const create = internalMutation({
   args: {
     clientId: v.id("clients"),
     partnerId: v.id("partners"),
@@ -10,10 +10,31 @@ export const create = mutation({
     date: v.string(),
     partySize: v.number(),
     priceEur: v.number(),
-    stripePaymentIntentId: v.optional(v.string()),
+    stripePaymentIntentId: v.string(),
   },
   handler: async (ctx, args) => {
-    if (!args.stripePaymentIntentId) throw new Error("Paiement obligatoire.");\n    const prior = await ctx.db.query("reservations").withIndex("by_payment_intent", q => q.eq("stripePaymentIntentId", args.stripePaymentIntentId)).first();\n    if (prior) throw new Error("Ce paiement a déjà été utilisé.");\n    const sameDatePartner = await ctx.db
+    const prior = await ctx.db
+      .query("reservations")
+      .withIndex("by_payment_intent", (q) => q.eq("stripePaymentIntentId", args.stripePaymentIntentId))
+      .first();
+
+    if (prior) {
+      if (
+        prior.status === "confirmed" &&
+        prior.clientId === args.clientId &&
+        prior.partnerId === args.partnerId &&
+        prior.tableId === args.tableId &&
+        prior.date === args.date &&
+        prior.partySize === args.partySize &&
+        prior.zone === args.zone &&
+        prior.priceEur === args.priceEur
+      ) {
+        return { reservationId: prior._id };
+      }
+      throw new Error("Ce paiement a déjà été utilisé.");
+    }
+
+    const sameDatePartner = await ctx.db
       .query("reservations")
       .withIndex("by_partner_date", (q) =>
         q.eq("partnerId", args.partnerId).eq("date", args.date)

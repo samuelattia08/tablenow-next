@@ -35,7 +35,8 @@ export default defineSchema({
     stripePaymentIntentId: v.optional(v.string()),
   })
     .index("by_client", ["clientId"])
-    .index("by_partner_date", ["partnerId", "date"])\n    .index("by_payment_intent", ["stripePaymentIntentId"]),
+    .index("by_partner_date", ["partnerId", "date"])
+    .index("by_payment_intent", ["stripePaymentIntentId"]),
 
   tables: defineTable({
     partnerId: v.id("partners"),
