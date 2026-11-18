@@ -1,4 +1,5 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
+import { requireAccount } from "./sessions";
 import { v } from "convex/values";
 
 export const listByPartner = query({
@@ -14,20 +15,26 @@ export const listByPartner = query({
 export const updateTable = mutation({
   args: {
     tableId: v.id("tables"),
+    token: v.string(),
     zone: v.string(),
     capacity: v.number(),
     priceEur: v.number(),
   },
   handler: async (ctx, args) => {
-    const { tableId, ...fields } = args;
-    await ctx.db.patch(tableId, fields);
+    const partnerId = await requireAccount(ctx, args.token, "partners");
+    const table = await ctx.db.get(args.tableId);
+    if (!table || table.partnerId !== partnerId) throw new Error("Table introuvable.");
+    if (!Number.isSafeInteger(args.capacity) || args.capacity < 1 || !Number.isFinite(args.priceEur) || args.priceEur <= 0) {
+      throw new Error("Capacité ou prix invalide.");
+    }
+    await ctx.db.patch(args.tableId, { zone: args.zone, capacity: args.capacity, priceEur: args.priceEur });
   },
 });
 
 // Seeds 50 bookable tables for a partner, laid out on a 10x5 grid.
 // Front two rows (closer to the stage) are priced as "vip", the rest "standard".
 // Safe to call multiple times: skips if tables already exist for this partner.
-export const seedTables = mutation({
+export const seedTables = internalMutation({
   args: { partnerId: v.id("partners") },
   handler: async (ctx, args) => {
     const existing = await ctx.db

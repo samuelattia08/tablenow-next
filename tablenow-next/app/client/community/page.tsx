@@ -23,7 +23,7 @@ function timeAgo(ts: number, lang: string) {
 
 export default function CommunityPage() {
   const { t, lang } = useLanguage();
-  const clientId = useStoredAccount<"clients">("tablenow_client_id", clientAuthHref("login", "/client/community"));
+  const { id: clientId, token } = useStoredAccount("clients", clientAuthHref("login", "/client/community"));
   const [content, setContent] = useState("");
   const [rating, setRating] = useState(0);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -33,7 +33,7 @@ export default function CommunityPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
 
-  const feed = useQuery(api.community.listFeed, clientId ? {} : "skip");
+  const feed = useQuery(api.community.listFeed, token ? { token } : "skip");
   const createPost = useMutation(api.community.createPost);
   const generateUploadUrl = useMutation(api.community.generateUploadUrl);
   const toggleLike = useMutation(api.community.toggleLike);
@@ -46,7 +46,7 @@ export default function CommunityPage() {
   }
 
   async function handlePublish() {
-    if (!clientId) return;
+    if (!clientId || !token) return;
     if (!content.trim() && !photoFile) {
       setError("Ajoute un texte ou une photo avant de publier.");
       return;
@@ -57,7 +57,7 @@ export default function CommunityPage() {
       let photoStorageId: Id<"_storage"> | undefined;
 
       if (photoFile) {
-        const uploadUrl = await generateUploadUrl();
+        const uploadUrl = await generateUploadUrl({ token });
         const result = await fetch(uploadUrl, {
           method: "POST",
           headers: { "Content-Type": photoFile.type },
@@ -67,7 +67,7 @@ export default function CommunityPage() {
         photoStorageId = json.storageId;
       }
 
-      await createPost({ clientId, content, photoStorageId, rating: rating || undefined });
+      await createPost({ clientId, token, content, photoStorageId, rating: rating || undefined });
       setContent("");
       setRating(0);
       setPhotoFile(null);
@@ -184,10 +184,10 @@ export default function CommunityPage() {
             <PostCard
               key={post._id}
               post={post}
-              clientId={clientId ?? null}
+              clientId={clientId} token={token ?? null}
               lang={lang}
               onToggleLike={() =>
-                clientId && toggleLike({ postId: post._id, clientId })
+                clientId && token && toggleLike({ postId: post._id, clientId, token })
               }
             />
           ))}
@@ -200,6 +200,7 @@ export default function CommunityPage() {
 function PostCard({
   post,
   clientId,
+  token,
   lang,
   onToggleLike,
 }: {
@@ -215,12 +216,13 @@ function PostCard({
     commentCount: number;
   };
   clientId: Id<"clients"> | null;
+  token: string | null;
   lang: string;
   onToggleLike: () => void;
 }) {
   const liked = useQuery(
     api.community.hasLiked,
-    clientId ? { postId: post._id, clientId } : "skip"
+    clientId && token ? { postId: post._id, clientId, token } : "skip"
   );
   const [showComments, setShowComments] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -229,15 +231,15 @@ function PostCard({
 
   const comments = useQuery(
     api.community.listComments,
-    showComments ? { postId: post._id } : "skip"
+    showComments && token ? { postId: post._id, token } : "skip"
   );
   const addComment = useMutation(api.community.addComment);
 
   async function handleSubmitComment() {
-    if (!clientId || !commentText.trim()) return;
+    if (!clientId || !token || !commentText.trim()) return;
     setSubmitting(true);
     try {
-      await addComment({ postId: post._id, clientId, content: commentText });
+      await addComment({ postId: post._id, clientId, token, content: commentText });
       setCommentText("");
     } finally {
       setSubmitting(false);

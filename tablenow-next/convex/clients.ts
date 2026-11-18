@@ -1,11 +1,13 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { issueSession, requireAccount } from "./sessions";
 import bcrypt from "bcryptjs";
 
-export const signup = mutation({
+export const signup = internalMutation({
   args: {
     email: v.string(),
     password: v.string(),
+    tokenHash: v.string(),
     firstName: v.string(),
     lastName: v.string(),
     phone: v.optional(v.string()),
@@ -23,6 +25,9 @@ export const signup = mutation({
       throw new Error("Un compte existe déjà avec cet email.");
     }
 
+    if (args.password.length < 8 || bcrypt.truncates(args.password)) {
+      throw new Error("Choisis un mot de passe d’au moins 8 caractères et d’au plus 72 octets.");
+    }
     const passwordHash = bcrypt.hashSync(args.password, 10);
 
     const clientId = await ctx.db.insert("clients", {
@@ -34,14 +39,16 @@ export const signup = mutation({
       lang: args.lang ?? "fr",
     });
 
+    await issueSession(ctx, { role: "clients", id: clientId }, args.tokenHash);
     return { clientId };
   },
 });
 
-export const login = mutation({
+export const login = internalMutation({
   args: {
     email: v.string(),
     password: v.string(),
+    tokenHash: v.string(),
   },
   handler: async (ctx, args) => {
     const email = args.email.trim().toLowerCase();
@@ -60,6 +67,7 @@ export const login = mutation({
       throw new Error("Email ou mot de passe incorrect.");
     }
 
+    await issueSession(ctx, { role: "clients", id: client._id }, args.tokenHash);
     return {
       clientId: client._id,
       firstName: client.firstName,
@@ -70,8 +78,9 @@ export const login = mutation({
 });
 
 export const getById = query({
-  args: { clientId: v.id("clients") },
+  args: { clientId: v.id("clients"), token: v.string() },
   handler: async (ctx, args) => {
+    await requireAccount(ctx, args.token, "clients", args.clientId);
     const client = await ctx.db.get(args.clientId);
     if (!client) return null;
     return {

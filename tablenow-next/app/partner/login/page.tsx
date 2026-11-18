@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
+import { storeSession } from "@/lib/use-stored-account";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/app/LanguageProvider";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export default function PartnerLoginPage() {
-  const login = useMutation(api.partners.login);
+  const login = useAction(api.auth.partnerLogin);
   const router = useRouter();
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
@@ -23,7 +24,7 @@ export default function PartnerLoginPage() {
     setLoading(true);
     try {
       const result = await login({ email, password });
-      localStorage.setItem("tablenow_partner_id", result.partnerId);
+      storeSession("partners", result.token);
       router.push("/partner/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue.");
@@ -92,11 +93,13 @@ export default function PartnerLoginPage() {
             </button>
           </form>
 
+          {process.env.NEXT_PUBLIC_TABLENOW_ENABLE_DEMO === "true" && (
           <p className="mt-5 text-center text-xs text-muted">
             {t("partner.login.demo")} : <strong>club-lenocturne@tablenow.app</strong> /{" "}
             <strong>club-klub7@tablenow.app</strong> —{" "}
             {t("login.password").toLowerCase()} <strong>demo1234</strong>
           </p>
+          )}
         </div>
       </div>
     </main>

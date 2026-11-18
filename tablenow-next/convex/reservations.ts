@@ -1,7 +1,8 @@
 import { internalMutation, query } from "./_generated/server";
+import { requireAccount } from "./sessions";
 import { v } from "convex/values";
 
-export const create = internalMutation({
+export const holdForCapture = internalMutation({
   args: {
     clientId: v.id("clients"),
     partnerId: v.id("partners"),
@@ -20,7 +21,7 @@ export const create = internalMutation({
 
     if (prior) {
       if (
-        prior.status === "confirmed" &&
+        (prior.status === "confirmed" || prior.status === "pending") &&
         prior.clientId === args.clientId &&
         prior.partnerId === args.partnerId &&
         prior.tableId === args.tableId &&
@@ -29,7 +30,7 @@ export const create = internalMutation({
         prior.zone === args.zone &&
         prior.priceEur === args.priceEur
       ) {
-        return { reservationId: prior._id };
+        return { reservationId: prior._id, status: prior.status };
       }
       throw new Error("Ce paiement a déjà été utilisé.");
     }
@@ -43,22 +44,43 @@ export const create = internalMutation({
       .collect();
 
     const alreadyTaken = sameDatePartner.some((r) => r.tableId === args.tableId);
-    if (alreadyTaken) {
-      throw new Error("Cette table est déjà réservée pour cette date.");
-    }
+    if (alreadyTaken) return null;
+
+    const client = await ctx.db.get(args.clientId);
+    if (!client) return null;
 
     const reservationId = await ctx.db.insert("reservations", {
       ...args,
-      status: "confirmed",
+      status: "pending",
       createdAt: Date.now(),
     });
-    return { reservationId };
+    return { reservationId, status: "pending" };
+  },
+});
+
+export const settleCapture = internalMutation({
+  args: {
+    paymentIntentId: v.string(),
+    status: v.union(v.literal("confirmed"), v.literal("cancelled")),
+  },
+  handler: async (ctx, args) => {
+    const reservation = await ctx.db.query("reservations")
+      .withIndex("by_payment_intent", (q) => q.eq("stripePaymentIntentId", args.paymentIntentId))
+      .unique();
+    if (!reservation) return null;
+    if (reservation.status === "pending") {
+      await ctx.db.patch(reservation._id, { status: args.status });
+    } else if (reservation.status !== args.status) {
+      throw new Error("L’état du paiement demande une vérification.");
+    }
+    return reservation._id;
   },
 });
 
 export const listByClient = query({
-  args: { clientId: v.id("clients") },
+  args: { clientId: v.id("clients"), token: v.string() },
   handler: async (ctx, args) => {
+    await requireAccount(ctx, args.token, "clients", args.clientId);
     return await ctx.db
       .query("reservations")
       .withIndex("by_client", (q) => q.eq("clientId", args.clientId))
@@ -68,8 +90,9 @@ export const listByClient = query({
 });
 
 export const listByPartnerAndDate = query({
-  args: { partnerId: v.id("partners"), date: v.string() },
+  args: { partnerId: v.id("partners"), date: v.string(), token: v.string() },
   handler: async (ctx, args) => {
+    await requireAccount(ctx, args.token, "partners", args.partnerId);
     return await ctx.db
       .query("reservations")
       .withIndex("by_partner_date", (q) =>

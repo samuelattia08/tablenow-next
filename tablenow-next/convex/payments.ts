@@ -1,42 +1,32 @@
 "use node";
 
+import type { ActionCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import Stripe from "stripe";
 import { validateBookingSelection } from "./bookingRules";
 
+const checkoutLifetime = 15 * 60 * 1000;
+
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) {
-    throw new Error(
-      "STRIPE_SECRET_KEY n'est pas configurée sur ce déploiement Convex."
-    );
-  }
+  if (!key) throw new ConvexError("Le paiement est temporairement indisponible.");
   return new Stripe(key);
 }
 
-// Step 1: called when the client opens the payment step for a table.
-// Creates a Stripe PaymentIntent with automatic_payment_methods enabled,
-// which makes Stripe's <PaymentElement> show Card AND Apple Pay (and
-// Google Pay) automatically, when the browser/device supports them.
 export const createPaymentIntent = action({
   args: {
-    clientId: v.id("clients"),
+    token: v.string(),
     partnerId: v.id("partners"),
     date: v.string(),
     partySize: v.number(),
     tableNumber: v.number(),
-    clubName: v.string(),
   },
-  returns: v.object({
-    clientSecret: v.union(v.string(), v.null()),
-    paymentIntentId: v.string(),
-  }),
+  returns: v.object({ clientSecret: v.union(v.string(), v.null()), paymentIntentId: v.string() }),
   handler: async (ctx, args) => {
-    const stripe = getStripe();
-
+    const clientId = await ctx.runQuery(internal.sessions.authorizeClient, { token: args.token });
     const table = await ctx.runQuery(api.tables.getBookableTable, {
       partnerId: args.partnerId,
       tableNumber: args.tableNumber,
@@ -48,95 +38,121 @@ export const createPaymentIntent = action({
       tableId: String(args.tableNumber),
     });
 
-    const paymentIntent = await stripe.paymentIntents.create({
+    const stripe = getStripe();
+    const payment = await stripe.paymentIntents.create({
       amount,
       currency: "eur",
+      capture_method: "manual",
+      payment_method_types: ["card"],
       metadata: {
-        clientId: args.clientId,
+        integration: "tablenow_manual_capture",
+        clientId,
         partnerId: args.partnerId,
         tableNumber: String(args.tableNumber),
         date: args.date,
         partySize: String(args.partySize),
+        zone: table.zone,
       },
-      payment_method_types: ["card"],
-      description: `TABLE NOW — Table ${args.tableNumber} — ${args.clubName}`,
+      description: `TABLE NOW — Table ${args.tableNumber}`,
     });
 
-    return {
-      clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id,
-    };
+    await ctx.scheduler.runAfter(checkoutLifetime, internal.payments.recoverCheckout, {
+      paymentIntentId: payment.id,
+      attempt: 0,
+    });
+    return { clientSecret: payment.client_secret, paymentIntentId: payment.id };
   },
 });
 
-// Step 2: called after Stripe confirms the payment on the client side.
-// We NEVER trust the client's word that "payment succeeded" — we re-check
-// the PaymentIntent status and amount directly with Stripe here, server-side,
-// before creating the reservation. This is what makes the payment "real"
-// rather than cosmetic.
+function isTableNowPayment(payment: Stripe.PaymentIntent) {
+  return payment.capture_method === "manual" &&
+    payment.currency === "eur" &&
+    payment.metadata.integration === "tablenow_manual_capture";
+}
+
+async function completeCheckout(
+  ctx: ActionCtx,
+  stripe: Stripe,
+  payment: Stripe.PaymentIntent,
+): Promise<Id<"reservations"> | null> {
+  if (!isTableNowPayment(payment)) throw new ConvexError("Paiement inconnu.");
+  if (payment.status === "succeeded" || payment.status === "canceled") {
+    return ctx.runMutation(internal.reservations.settleCapture, {
+      paymentIntentId: payment.id,
+      status: payment.status === "succeeded" ? "confirmed" : "cancelled",
+    });
+  }
+  if (payment.status !== "requires_capture") return null;
+
+  const { metadata } = payment;
+  const reservation = await ctx.runMutation(internal.reservations.holdForCapture, {
+    clientId: metadata.clientId as Id<"clients">,
+    partnerId: metadata.partnerId as Id<"partners">,
+    tableId: metadata.tableNumber,
+    zone: metadata.zone,
+    date: metadata.date,
+    partySize: Number(metadata.partySize),
+    priceEur: payment.amount / 100,
+    stripePaymentIntentId: payment.id,
+  });
+  if (!reservation) {
+    await stripe.paymentIntents.cancel(payment.id, {}, { idempotencyKey: `conflict-${payment.id}` });
+    return null;
+  }
+
+  const captured = await stripe.paymentIntents.capture(
+    payment.id,
+    { amount_to_capture: payment.amount },
+    { idempotencyKey: `capture-${payment.id}` },
+  );
+  if (captured.status !== "succeeded" || captured.amount_received !== payment.amount) {
+    throw new ConvexError("La confirmation du paiement est en cours.");
+  }
+  return ctx.runMutation(internal.reservations.settleCapture, {
+    paymentIntentId: payment.id,
+    status: "confirmed",
+  });
+}
+
 export const confirmReservationPayment = action({
-  args: {
-    paymentIntentId: v.string(),
-    clientId: v.id("clients"),
-    partnerId: v.id("partners"),
-    tableId: v.string(),
-    zone: v.string(),
-    date: v.string(),
-    partySize: v.number(),
-    expectedAmountEur: v.number(),
-  },
-  returns: v.object({
-    reservationId: v.id("reservations"),
-  }),
+  args: { token: v.string(), paymentIntentId: v.string() },
+  returns: v.object({ reservationId: v.id("reservations") }),
   handler: async (ctx, args): Promise<{ reservationId: Id<"reservations"> }> => {
+    const clientId = await ctx.runQuery(internal.sessions.authorizeClient, { token: args.token });
     const stripe = getStripe();
-
-    const paymentIntent = await stripe.paymentIntents.retrieve(
-      args.paymentIntentId
-    );
-
-    if (paymentIntent.status !== "succeeded") {
-      throw new Error(
-        `Le paiement n'est pas confirmé (statut Stripe : ${paymentIntent.status}).`
-      );
+    const payment = await stripe.paymentIntents.retrieve(args.paymentIntentId);
+    if (payment.metadata.clientId !== clientId) throw new ConvexError("Paiement inconnu.");
+    const reservationId = await completeCheckout(ctx, stripe, payment);
+    if (!reservationId) {
+      throw new ConvexError("La réservation n’a pas été confirmée. Consulte tes réservations avant de réessayer.");
     }
+    return { reservationId };
+  },
+});
 
-    const { metadata } = paymentIntent;
-    if (
-      metadata.clientId !== args.clientId ||
-      metadata.partnerId !== args.partnerId ||
-      metadata.tableNumber !== args.tableId ||
-      metadata.date !== args.date ||
-      metadata.partySize !== String(args.partySize)
-    ) {
-      throw new Error("Ce paiement ne correspond pas à la réservation.");
+export const recoverCheckout = internalAction({
+  args: { paymentIntentId: v.string(), attempt: v.number() },
+  handler: async (ctx, args): Promise<void> => {
+    try {
+      const stripe = getStripe();
+      const payment = await stripe.paymentIntents.retrieve(args.paymentIntentId);
+      if (!isTableNowPayment(payment)) return;
+      if (payment.status === "processing") throw new Error("Stripe traite encore le paiement.");
+      if (["requires_payment_method", "requires_confirmation", "requires_action"].includes(payment.status)) {
+        await stripe.paymentIntents.cancel(payment.id, {}, { idempotencyKey: `expired-${payment.id}` });
+        await ctx.runMutation(internal.reservations.settleCapture, {
+          paymentIntentId: payment.id,
+          status: "cancelled",
+        });
+        return;
+      }
+      await completeCheckout(ctx, stripe, payment);
+    } catch (error) {
+      if (args.attempt >= 10) throw error;
+      await ctx.scheduler.runAfter(Math.min(60 * 60 * 1000, 60_000 * 2 ** args.attempt), internal.payments.recoverCheckout, {
+        ...args,
+        attempt: args.attempt + 1,
+      });
     }
-
-    const table = await ctx.runQuery(api.tables.getBookableTable, {
-      partnerId: args.partnerId,
-      tableNumber: Number(args.tableId),
-    });
-    const expectedCents = validateBookingSelection(args.date, args.partySize, table);
-    if (
-      args.zone !== table.zone ||
-      args.expectedAmountEur !== table.priceEur ||
-      paymentIntent.currency !== "eur" ||
-      paymentIntent.amount_received !== expectedCents
-    ) {
-      throw new Error("Le paiement ne correspond pas au prix de la table.");
-    }
-
-    const result = await ctx.runMutation(internal.reservations.create, {
-      clientId: args.clientId,
-      partnerId: args.partnerId,
-      tableId: args.tableId,
-      zone: args.zone,
-      date: args.date,
-      partySize: args.partySize,
-      priceEur: args.expectedAmountEur,
-      stripePaymentIntentId: args.paymentIntentId,
-    });
-
-    return result;
   },
 });

@@ -1,5 +1,6 @@
 "use node";
 
+import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 
@@ -8,6 +9,7 @@ import { v } from "convex/values";
 
 export const askHost = action({
   args: {
+    token: v.string(),
     systemPrompt: v.string(),
     messages: v.array(
       v.object({
@@ -17,6 +19,7 @@ export const askHost = action({
     ),
   },
   handler: async (ctx, args) => {
+    await ctx.runQuery(internal.sessions.authorizeClient, { token: args.token });
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       throw new Error(

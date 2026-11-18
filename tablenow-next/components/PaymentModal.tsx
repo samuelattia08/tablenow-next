@@ -42,7 +42,7 @@ function PaymentForm({
       return;
     }
 
-    if (paymentIntent && paymentIntent.status === "succeeded") {
+    if (paymentIntent && (paymentIntent.status === "requires_capture" || paymentIntent.status === "succeeded")) {
       onSuccess(paymentIntent.id);
     } else {
       setError("Le paiement n'a pas pu être confirmé.");

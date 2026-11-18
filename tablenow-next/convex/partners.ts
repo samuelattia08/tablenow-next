@@ -1,12 +1,17 @@
 import type { Id } from "./_generated/dataModel";
-import { type MutationCtx, mutation, query } from "./_generated/server";
+import { type MutationCtx, internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { issueSession, requireAccount } from "./sessions";
 import bcrypt from "bcryptjs";
 
-export const login = mutation({
+const demoEmails = ["club-lenocturne@tablenow.app", "club-klub7@tablenow.app"];
+
+export const login = internalMutation({
   args: {
     email: v.string(),
     password: v.string(),
+    tokenHash: v.string(),
+    allowDemo: v.boolean(),
   },
   handler: async (ctx, args) => {
     const email = args.email.trim().toLowerCase();
@@ -16,7 +21,7 @@ export const login = mutation({
       .withIndex("by_email", (q) => q.eq("email", email))
       .unique();
 
-    if (!partner) {
+    if (!partner || (!args.allowDemo && demoEmails.includes(email))) {
       throw new Error("Email ou mot de passe incorrect.");
     }
 
@@ -25,6 +30,7 @@ export const login = mutation({
       throw new Error("Email ou mot de passe incorrect.");
     }
 
+    await issueSession(ctx, { role: "partners", id: partner._id }, args.tokenHash);
     return {
       partnerId: partner._id,
       clubName: partner.clubName,
@@ -37,7 +43,7 @@ export const listPublic = query({
   args: {},
   handler: async (ctx) => {
     const partners = await ctx.db.query("partners").collect();
-    return partners.map((p) => ({
+    return partners.filter((partner) => process.env.TABLENOW_ENABLE_DEMO === "true" || !demoEmails.includes(partner.email)).map((p) => ({
       _id: p._id,
       clubName: p.clubName,
       city: p.city,
@@ -46,8 +52,9 @@ export const listPublic = query({
 });
 
 export const getById = query({
-  args: { partnerId: v.id("partners") },
+  args: { partnerId: v.id("partners"), token: v.string() },
   handler: async (ctx, args) => {
+    await requireAccount(ctx, args.token, "partners", args.partnerId);
     const partner = await ctx.db.get(args.partnerId);
     if (!partner) return null;
     const galleryUrls = partner.galleryStorageIds
@@ -71,19 +78,21 @@ export const getById = query({
 export const updateProfile = mutation({
   args: {
     partnerId: v.id("partners"),
+    token: v.string(),
     city: v.optional(v.string()),
     instagram: v.optional(v.string()),
     tiktok: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { partnerId, ...fields } = args;
-    await ctx.db.patch(partnerId, fields);
+    await requireAccount(ctx, args.token, "partners", args.partnerId);
+    await ctx.db.patch(args.partnerId, { city: args.city, instagram: args.instagram, tiktok: args.tiktok });
   },
 });
 
 export const generateGalleryUploadUrl = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireAccount(ctx, args.token, "partners");
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -91,9 +100,11 @@ export const generateGalleryUploadUrl = mutation({
 export const addGalleryPhoto = mutation({
   args: {
     partnerId: v.id("partners"),
+    token: v.string(),
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
+    await requireAccount(ctx, args.token, "partners", args.partnerId);
     const partner = await ctx.db.get(args.partnerId);
     if (!partner) throw new Error("Partenaire introuvable.");
     const current = partner.galleryStorageIds ?? [];
@@ -132,7 +143,7 @@ function seedTablesForPartner(ctx: MutationCtx, partnerId: Id<"partners">) {
 
 // Seeds the two existing demo partner accounts (club-lenocturne / club-klub7)
 // Safe to call multiple times: skips creation if the account already exists.
-export const seedDemoPartners = mutation({
+export const seedDemoPartners = internalMutation({
   args: {},
   handler: async (ctx) => {
     const demoAccounts = [

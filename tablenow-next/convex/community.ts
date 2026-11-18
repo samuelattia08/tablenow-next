@@ -1,10 +1,12 @@
 import { mutation, query } from "./_generated/server";
+import { requireAccount } from "./sessions";
 import { v } from "convex/values";
 
 // Step 1 for photo upload: the client asks Convex for a one-time upload URL.
 export const generateUploadUrl = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireAccount(ctx, args.token, "clients");
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -12,12 +14,14 @@ export const generateUploadUrl = mutation({
 export const createPost = mutation({
   args: {
     clientId: v.id("clients"),
+    token: v.string(),
     partnerId: v.optional(v.id("partners")),
     content: v.string(),
     photoStorageId: v.optional(v.id("_storage")),
     rating: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireAccount(ctx, args.token, "clients", args.clientId);
     if (!args.content.trim() && !args.photoStorageId) {
       throw new Error("Ajoute un texte ou une photo avant de publier.");
     }
@@ -34,8 +38,13 @@ export const createPost = mutation({
 });
 
 export const listFeed = query({
-  args: { partnerId: v.optional(v.id("partners")) },
+  args: { partnerId: v.optional(v.id("partners")), token: v.string() },
   handler: async (ctx, args) => {
+    if (args.partnerId) {
+      await requireAccount(ctx, args.token, "partners", args.partnerId);
+    } else {
+      await requireAccount(ctx, args.token, "clients");
+    }
     const posts = args.partnerId
       ? await ctx.db
           .query("posts")
@@ -84,8 +93,10 @@ export const toggleLike = mutation({
   args: {
     postId: v.id("posts"),
     clientId: v.id("clients"),
+    token: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireAccount(ctx, args.token, "clients", args.clientId);
     const existing = await ctx.db
       .query("postLikes")
       .withIndex("by_post_client", (q) =>
@@ -110,8 +121,10 @@ export const hasLiked = query({
   args: {
     postId: v.id("posts"),
     clientId: v.id("clients"),
+    token: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireAccount(ctx, args.token, "clients", args.clientId);
     const existing = await ctx.db
       .query("postLikes")
       .withIndex("by_post_client", (q) =>
@@ -126,9 +139,11 @@ export const addComment = mutation({
   args: {
     postId: v.id("posts"),
     clientId: v.id("clients"),
+    token: v.string(),
     content: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireAccount(ctx, args.token, "clients", args.clientId);
     const trimmed = args.content.trim();
     if (!trimmed) {
       throw new Error("Écris un commentaire avant d'envoyer.");
@@ -143,8 +158,9 @@ export const addComment = mutation({
 });
 
 export const listComments = query({
-  args: { postId: v.id("posts") },
+  args: { postId: v.id("posts"), token: v.string() },
   handler: async (ctx, args) => {
+    await requireAccount(ctx, args.token, "clients");
     const comments = await ctx.db
       .query("postComments")
       .withIndex("by_post", (q) => q.eq("postId", args.postId))

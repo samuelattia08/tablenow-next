@@ -1,7 +1,23 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { venueFields } from "./venueFields";
 
 export default defineSchema({
+  authLimits: defineTable({
+    key: v.string(),
+    count: v.number(),
+    expiresAt: v.number(),
+  }).index("by_key", ["key"]),
+
+  accountSessions: defineTable({
+    owner: v.union(
+      v.object({ role: v.literal("clients"), id: v.id("clients") }),
+      v.object({ role: v.literal("partners"), id: v.id("partners") }),
+    ),
+    tokenHash: v.string(),
+    expiresAt: v.number(),
+  }).index("by_token", ["tokenHash"]),
+
   clients: defineTable({
     email: v.string(),
     passwordHash: v.string(),
@@ -21,6 +37,24 @@ export default defineSchema({
     photoUrl: v.optional(v.string()),
     galleryStorageIds: v.optional(v.array(v.id("_storage"))),
   }).index("by_email", ["email"]),
+
+  venueProfiles: defineTable({
+    partnerId: v.id("partners"),
+    ...venueFields,
+  })
+    .index("by_partner", ["partnerId"])
+    .index("by_published_country_city", ["published", "country", "city"]),
+
+  venueEvents: defineTable({
+    partnerId: v.id("partners"),
+    name: v.string(),
+    date: v.string(),
+    startTime: v.string(),
+    description: v.string(),
+    published: v.boolean(),
+  })
+    .index("by_partner_date", ["partnerId", "date"])
+    .index("by_partner_published_date", ["partnerId", "published", "date"]),
 
   reservations: defineTable({
     clientId: v.id("clients"),

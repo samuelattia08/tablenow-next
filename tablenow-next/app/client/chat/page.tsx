@@ -31,7 +31,7 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useStoredAccount<"clients">("tablenow_client_id", clientAuthHref("login", "/client/chat"));
+  const { token } = useStoredAccount("clients", clientAuthHref("login", "/client/chat"));
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -39,7 +39,7 @@ export default function ChatPage() {
 
   async function handleSend() {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!token || !text || loading) return;
 
     const newMessages: ChatMessage[] = [...messages, { role: "user", content: text }];
     setMessages(newMessages);
@@ -49,6 +49,7 @@ export default function ChatPage() {
 
     try {
       const result = await askHost({
+        token,
         systemPrompt: SYSTEM_PROMPT,
         messages: newMessages,
       });

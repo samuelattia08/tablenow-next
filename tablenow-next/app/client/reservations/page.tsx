@@ -12,16 +12,16 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 export default function ClientReservationsPage() {
   const router = useRouter();
   const { t } = useLanguage();
-  const clientId = useStoredAccount<"clients">("tablenow_client_id", clientAuthHref("login", "/client/reservations"));
+  const { id: clientId, token, signOut } = useStoredAccount("clients", clientAuthHref("login", "/client/reservations"));
 
 
   const reservations = useQuery(
     api.reservations.listByClient,
-    clientId ? { clientId } : "skip"
+    clientId && token ? { clientId, token } : "skip"
   );
 
-  function handleLogout() {
-    localStorage.removeItem("tablenow_client_id");
+  async function handleLogout() {
+    await signOut();
     router.replace("/");
   }
 

@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 
 export default function PartnerDashboardPage() {
   const router = useRouter();
-  const partnerId = useStoredAccount<"partners">("tablenow_partner_id", "/partner/login");
+  const { id: partnerId, token, signOut } = useStoredAccount("partners", "/partner/login");
   const [cityDraft, setCity] = useState<string>();
   const [instagramDraft, setInstagram] = useState<string>();
   const [tiktokDraft, setTiktok] = useState<string>();
@@ -20,7 +20,7 @@ export default function PartnerDashboardPage() {
 
   const partner = useQuery(
     api.partners.getById,
-    partnerId ? { partnerId } : "skip"
+    partnerId && token ? { partnerId, token } : "skip"
   );
   const updateProfile = useMutation(api.partners.updateProfile);
   const generateGalleryUploadUrl = useMutation(
@@ -32,31 +32,31 @@ export default function PartnerDashboardPage() {
   const instagram = instagramDraft ?? partner?.instagram ?? "";
   const tiktok = tiktokDraft ?? partner?.tiktok ?? "";
 
-  function handleLogout() {
-    localStorage.removeItem("tablenow_partner_id");
+  async function handleLogout() {
+    await signOut();
     router.push("/");
   }
 
   async function handleSaveProfile() {
-    if (!partnerId) return;
-    await updateProfile({ partnerId, city, instagram, tiktok });
+    if (!partnerId || !token) return;
+    await updateProfile({ partnerId, token, city, instagram, tiktok });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !partnerId) return;
+    if (!file || !partnerId || !token) return;
     setUploading(true);
     try {
-      const uploadUrl = await generateGalleryUploadUrl();
+      const uploadUrl = await generateGalleryUploadUrl({ token });
       const result = await fetch(uploadUrl, {
         method: "POST",
         headers: { "Content-Type": file.type },
         body: file,
       });
       const json = await result.json();
-      await addGalleryPhoto({ partnerId, storageId: json.storageId });
+      await addGalleryPhoto({ partnerId, token, storageId: json.storageId });
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -177,7 +177,7 @@ export default function PartnerDashboardPage() {
         {/* Ce que disent tes clients */}
         <div className="mt-6">
           <h2 className="text-sm font-semibold">Ce que disent tes clients</h2>
-          <CommunityFeedPreview partnerId={partnerId ?? null} />
+          <CommunityFeedPreview partnerId={partnerId} token={token ?? null} />
         </div>
       </div>
     </main>
@@ -186,12 +186,14 @@ export default function PartnerDashboardPage() {
 
 function CommunityFeedPreview({
   partnerId,
+  token,
 }: {
   partnerId: Id<"partners"> | null;
+  token: string | null;
 }) {
   const feed = useQuery(
     api.community.listFeed,
-    partnerId ? { partnerId } : "skip"
+    partnerId && token ? { partnerId, token } : "skip"
   );
 
   if (feed === undefined) {

@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import Link from "next/link";
 import { useStoredAccount } from "@/lib/use-stored-account";
-import { useRouter } from "next/navigation";
-import { clientAuthHref } from "@/lib/client-navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { bookingHref, clientAuthHref } from "@/lib/client-navigation";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/app/LanguageProvider";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -21,21 +21,28 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function BookPage() {
+function Booking() {
   const router = useRouter();
   const { t } = useLanguage();
-  const clientId = useStoredAccount<"clients">("tablenow_client_id", clientAuthHref("login", "/client/book"));
+  const params = useSearchParams();
+  const venueParam = params.get("venue");
+  const dateParam = params.get("date");
+  const guestsParam = Number(params.get("guests"));
+  const initialGuests = Number.isInteger(guestsParam) && guestsParam >= 1 && guestsParam <= 100 ? guestsParam : 2;
+  const initialDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && dateParam >= todayIso() ? dateParam : todayIso();
+  const destination = params.size ? bookingHref(venueParam, dateParam, guestsParam) : "/client/book";
+  const { id: clientId, token } = useStoredAccount("clients", clientAuthHref("login", destination));
   const [selectedPartnerId, setPartnerId] = useState<Id<"partners"> | null>(null);
-  const [date, setDate] = useState(todayIso());
+  const [date, setDate] = useState(initialDate);
   const [selectedTableNumber, setSelectedTableNumber] = useState<number | null>(null);
-  const [partySize, setPartySize] = useState(2);
+  const [partySize, setPartySize] = useState(initialGuests);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
 
   const clubs = useQuery(api.partners.listPublic, clientId ? {} : "skip");
-  const partnerId = selectedPartnerId ?? clubs?.[0]?._id;
+  const partnerId = selectedPartnerId ?? clubs?.find((club) => club._id === venueParam)?._id ?? clubs?.[0]?._id;
   const tables = useQuery(
     api.tables.listByPartner,
     partnerId ? { partnerId } : "skip"
@@ -73,7 +80,7 @@ export default function BookPage() {
   const selectedTable = tables?.find((t) => t.number === selectedTableNumber);
 
   async function handleConfirm() {
-    if (!clientId || !partnerId || !selectedTable) return;
+    if (!token || !partnerId || !selectedTable) return;
     setConfirming(true);
     setError(null);
     try {
@@ -81,9 +88,8 @@ export default function BookPage() {
         partnerId,
         date,
         partySize,
-        clientId,
+        token,
         tableNumber: selectedTable.number,
-        clubName: clubs?.find((c) => c._id === partnerId)?.clubName ?? "",
       });
       if (!clientSecret) throw new Error("Impossible d'initialiser le paiement.");
       setPaymentSecret(clientSecret);
@@ -95,24 +101,18 @@ export default function BookPage() {
   }
 
   async function handlePaymentSuccess(confirmedPaymentIntentId: string) {
-    if (!clientId || !partnerId || !selectedTable) return;
+    if (!token || !partnerId || !selectedTable) return;
     try {
       await confirmReservationPayment({
         paymentIntentId: confirmedPaymentIntentId,
-        clientId,
-        partnerId,
-        tableId: String(selectedTable.number),
-        zone: selectedTable.zone,
-        date,
-        partySize,
-        expectedAmountEur: selectedTable.priceEur,
+        token,
       });
       setSuccess(
         `Paiement confirmé — table ${selectedTable.number} réservée pour le ${date}.`
       );
       setPaymentSecret(null);
       setSelectedTableNumber(null);
-      setTimeout(() => router.push("/client/reservations"), 1500);
+      router.replace("/client/reservations");
     } catch (err) {
       setError(
         err instanceof Error
@@ -310,4 +310,8 @@ export default function BookPage() {
       </div>
     </main>
   );
+}
+
+export default function BookPage() {
+  return <Suspense><Booking /></Suspense>;
 }

@@ -1,9 +1,10 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
+import { storeSession } from "@/lib/use-stored-account";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/app/LanguageProvider";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -11,7 +12,7 @@ import { ClientBackLink } from "@/components/ClientBackLink";
 import { clientAuthHref, clientDestination } from "@/lib/client-navigation";
 
 function ClientSignupPage() {
-  const signup = useMutation(api.clients.signup);
+  const signup = useAction(api.auth.clientSignup);
   const router = useRouter();
   const destination = clientDestination(useSearchParams().get("next"));
   const { t, lang } = useLanguage();
@@ -36,7 +37,7 @@ function ClientSignupPage() {
         password,
         lang,
       });
-      localStorage.setItem("tablenow_client_id", result.clientId);
+      storeSession("clients", result.token);
       router.replace(destination);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue.");

@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useStoredAccount } from "@/lib/use-stored-account";
 
 export default function PartnerFloorPlanPage() {
-  const partnerId = useStoredAccount<"partners">("tablenow_partner_id", "/partner/login");
+  const { id: partnerId, token } = useStoredAccount("partners", "/partner/login");
   const [selectedId, setSelectedId] = useState<Id<"tables"> | null>(null);
   const [zone, setZone] = useState("standard");
   const [capacity, setCapacity] = useState(4);
@@ -44,8 +44,8 @@ export default function PartnerFloorPlanPage() {
   }
 
   async function handleSave() {
-    if (!selectedId) return;
-    await updateTable({ tableId: selectedId, zone, capacity, priceEur });
+    if (!selectedId || !token) return;
+    await updateTable({ token, tableId: selectedId, zone, capacity, priceEur });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
