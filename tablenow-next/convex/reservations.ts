@@ -13,7 +13,7 @@ export const create = mutation({
     stripePaymentIntentId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const sameDatePartner = await ctx.db
+    if (!args.stripePaymentIntentId) throw new Error("Paiement obligatoire.");\n    const prior = await ctx.db.query("reservations").withIndex("by_payment_intent", q => q.eq("stripePaymentIntentId", args.stripePaymentIntentId)).first();\n    if (prior) throw new Error("Ce paiement a déjà été utilisé.");\n    const sameDatePartner = await ctx.db
       .query("reservations")
       .withIndex("by_partner_date", (q) =>
         q.eq("partnerId", args.partnerId).eq("date", args.date)
@@ -69,5 +69,18 @@ export const listReservedTableNumbers = query({
       .filter((q) => q.neq(q.field("status"), "cancelled"))
       .collect();
     return reservations.map((r) => r.tableId);
+  },
+});
+
+export const assertAvailable = query({
+  args: { partnerId: v.id("partners"), date: v.string(), tableId: v.string() },
+  handler: async (ctx, args) => {
+    const reservations = await ctx.db.query("reservations")
+      .withIndex("by_partner_date", q => q.eq("partnerId", args.partnerId).eq("date", args.date))
+      .collect();
+    if (reservations.some(r => r.tableId === args.tableId && r.status !== "cancelled")) {
+      throw new Error("Cette table est déjà réservée pour cette date.");
+    }
+    return true;
   },
 });

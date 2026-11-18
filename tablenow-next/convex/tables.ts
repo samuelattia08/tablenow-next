@@ -64,3 +64,14 @@ export const seedTables = mutation({
     return { seeded: true, count: number - 1 };
   },
 });
+
+export const getBookableTable = query({
+  args: { partnerId: v.id("partners"), tableNumber: v.number() },
+  handler: async (ctx, args) => {
+    const table = await ctx.db.query("tables")
+      .withIndex("by_partner_number", q => q.eq("partnerId", args.partnerId).eq("number", args.tableNumber))
+      .unique();
+    if (!table) throw new Error("Table introuvable.");
+    return { _id: table._id, number: table.number, priceEur: table.priceEur, capacity: table.capacity, zone: table.zone };
+  },
+});

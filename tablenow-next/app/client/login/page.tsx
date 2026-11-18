@@ -42,7 +42,7 @@ export default function ClientLoginPage() {
           <LanguageSwitcher />
         </div>
 
-        <div className="card mt-8 p-6">
+        <Link href="/" className="inline-flex items-center min-h-11 mt-6 text-sm text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-blue">Retour à l’accueil</Link>\n        <div className="card mt-4 p-6">
           <h1 className="text-xl font-semibold">{t("login.title")}</h1>
           <p className="mt-1 text-sm text-muted">{t("login.sub")}</p>
 
