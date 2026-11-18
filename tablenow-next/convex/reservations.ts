@@ -13,7 +13,7 @@ export const create = mutation({
     stripePaymentIntentId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const sameDatePartner = await ctx.db
+    if (!args.stripePaymentIntentId) throw new Error("Paiement obligatoire.");\n    const prior = await ctx.db.query("reservations").withIndex("by_payment_intent", q => q.eq("stripePaymentIntentId", args.stripePaymentIntentId)).first();\n    if (prior) throw new Error("Ce paiement a déjà été utilisé.");\n    const sameDatePartner = await ctx.db
       .query("reservations")
       .withIndex("by_partner_date", (q) =>
         q.eq("partnerId", args.partnerId).eq("date", args.date)
