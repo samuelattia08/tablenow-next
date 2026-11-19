@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   Elements,
   PaymentElement,
@@ -68,14 +68,14 @@ function PaymentForm({
           type="button"
           onClick={onCancel}
           disabled={processing}
-          className="flex-1 py-2.5 text-sm rounded-full border border-border text-muted hover:text-text disabled:opacity-60"
+          className="min-h-12 flex-1 py-2.5 text-sm rounded-full border border-border text-muted hover:text-text disabled:opacity-60"
         >
           {t("payment.cancel")}
         </button>
         <button
           type="submit"
           disabled={!stripe || processing}
-          className="btn-primary flex-1 py-2.5 text-sm disabled:opacity-60"
+          className="btn-primary min-h-12 flex-1 py-2.5 text-sm disabled:opacity-60"
         >
           {processing ? t("payment.processing") : `${t("payment.pay")} ${amountEur} €`}
         </button>
@@ -96,24 +96,28 @@ export function PaymentModal({
   onCancel: () => void;
 }) {
   const { t } = useLanguage();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  useEffect(() => {
+    const element = dialog.current;
+    element?.showModal();
+    return () => element?.close();
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-      <div className="card w-full max-w-sm p-6">
-        <h2 className="text-lg font-semibold">{t("payment.title")}</h2>
-        <p className="mt-1 text-sm text-muted">{t("payment.sub")}</p>
-        <div className="mt-5">
-          <Elements
-            stripe={getStripe()}
-            options={{ clientSecret, appearance: { theme: "night" } }}
-          >
-            <PaymentForm
-              amountEur={amountEur}
-              onSuccess={onSuccess}
-              onCancel={onCancel}
-            />
-          </Elements>
-        </div>
+    <dialog
+      ref={dialog}
+      aria-labelledby={titleId}
+      onCancel={(event) => event.preventDefault()}
+      className="checkout-sheet card fixed inset-x-0 top-auto bottom-0 mx-auto w-full max-w-none rounded-b-none p-6 text-text backdrop:bg-black/75 sm:inset-y-0 sm:my-auto sm:max-w-sm sm:rounded-2xl"
+    >
+      <h2 id={titleId} className="text-lg font-semibold">{t("payment.title")}</h2>
+      <p className="mt-1 text-sm text-muted">{t("payment.sub")}</p>
+      <div className="mt-5">
+        <Elements stripe={getStripe()} options={{ clientSecret, appearance: { theme: "night" } }}>
+          <PaymentForm amountEur={amountEur} onSuccess={onSuccess} onCancel={onCancel} />
+        </Elements>
       </div>
-    </div>
+    </dialog>
   );
 }

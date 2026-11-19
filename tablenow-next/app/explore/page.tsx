@@ -27,7 +27,7 @@ export default function ExplorePage() {
 
   return (
     <main className="flex-1">
-      <section className="explore-banner px-5 pt-5 pb-14 sm:px-8 sm:pb-20">
+      <section className="explore-banner px-5 pt-4 pb-12 sm:px-8 sm:pb-20">
         <header className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
           <Link className="font-display text-xl font-bold" href="/">TABLE <span className="gradient-text">NOW</span></Link>
           <div className="flex flex-wrap items-center gap-4">
@@ -35,14 +35,14 @@ export default function ExplorePage() {
             <Link className="inline-flex min-h-11 items-center text-sm" href="/client/reservations">{t("chooser.client")}</Link>
           </div>
         </header>
-        <div className="mx-auto mt-12 max-w-6xl">
+        <div className="mx-auto mt-7 max-w-6xl sm:mt-12">
           <h1 className="font-display max-w-3xl text-4xl leading-tight font-bold sm:text-6xl">{t("explore.title")}</h1>
           <p className="mt-3 max-w-xl text-muted">{t("explore.subtitle")}</p>
         </div>
       </section>
 
       <div className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
-        <form className="card relative -mt-6 grid gap-4 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3" onSubmit={(event) => {
+        <form className="card relative -mt-6 grid grid-cols-2 gap-x-3 gap-y-4 p-4 sm:gap-4 sm:p-6 lg:grid-cols-3" onSubmit={(event) => {
           event.preventDefault();
           setSearch({ ...draft, to: draft.to || draft.from, availableOnly: singleDay && draft.availableOnly });
         }}>
@@ -53,7 +53,7 @@ export default function ExplorePage() {
           ] as const).map(([field, options]) => (
             <label className="grid min-w-0 gap-1.5 text-sm" key={field}>
               {t(`explore.${field}`)}
-              <select className="input-field min-h-11 min-w-0 px-3 text-base" value={draft[field]} onChange={(e) =>
+              <select className="input-field min-h-12 w-full min-w-0 px-2 text-base sm:px-3" value={draft[field]} onChange={(e) =>
                 setDraft({ ...draft, [field]: e.target.value, ...(field === "country" ? { city: "" } : {}) })}>
                 <option value="">{t("explore.all")}</option>
                 {options.map((option) => <option key={option} value={option}>{option}</option>)}
@@ -61,25 +61,25 @@ export default function ExplorePage() {
             </label>
           ))}
           <label className="grid min-w-0 gap-1.5 text-sm">{t("explore.from")}
-            <input className="input-field min-h-11 min-w-0 px-3 text-base" type="date" min={today}
+            <input className="input-field min-h-12 w-full min-w-0 px-2 text-base sm:px-3" type="date" min={today}
               value={draft.from} onChange={(e) => setDraft({ ...draft, from: e.target.value, to: e.target.value > draft.to ? "" : draft.to })} />
           </label>
           <label className="grid min-w-0 gap-1.5 text-sm">{t("explore.to")}
-            <input className="input-field min-h-11 min-w-0 px-3 text-base" type="date" min={draft.from || today}
+            <input className="input-field min-h-12 w-full min-w-0 px-2 text-base sm:px-3" type="date" min={draft.from || today}
               value={draft.to} onChange={(e) => setDraft({ ...draft, to: e.target.value })} />
           </label>
           <label className="grid min-w-0 gap-1.5 text-sm">{t("explore.guests")}
-            <input className="input-field min-h-11 min-w-0 px-3 text-base" type="number" min="1" max="100" required
+            <input className="input-field min-h-12 w-full min-w-0 px-2 text-base sm:px-3" type="number" min="1" max="100" required
               value={draft.guests || ""} onChange={(e) => setDraft({ ...draft, guests: Number(e.target.value) })} />
           </label>
-          <label className="flex min-h-11 items-center gap-3 text-sm">
+          <label className="col-span-2 flex min-h-11 items-center gap-3 text-sm lg:col-span-1">
             <input type="checkbox" checked={draft.eventsOnly} onChange={(e) => setDraft({ ...draft, eventsOnly: e.target.checked })} />{t("explore.eventsOnly")}
           </label>
-          <label className="flex min-h-11 items-center gap-3 text-sm has-disabled:text-muted">
+          <label className="col-span-2 flex min-h-11 items-center gap-3 text-sm lg:col-span-1 has-disabled:text-muted">
             <input type="checkbox" disabled={!singleDay} checked={singleDay && draft.availableOnly}
               onChange={(e) => setDraft({ ...draft, availableOnly: e.target.checked })} />{t("explore.availableOnly")}
           </label>
-          <button type="submit" className="btn-primary min-h-11 px-6">{t("explore.search")}</button>
+          <button type="submit" className="btn-primary col-span-2 min-h-12 px-6 lg:col-span-1">{t("explore.search")}</button>
         </form>
 
         <section className="mt-10" aria-live="polite">
@@ -88,12 +88,12 @@ export default function ExplorePage() {
           {venues?.length === 0 && <p className="card mt-5 p-5 text-muted">{t("explore.empty")}</p>}
           <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {venues?.map((venue) => (
-              <article key={venue.partnerId} className="card overflow-hidden transition-colors hover:border-blue/50">
+              <article key={venue.partnerId} className="card overflow-hidden shadow-lg shadow-black/20 transition-colors hover:border-blue/50">
                 {venue.photo && <Image src={venue.photo} width={600} height={340} alt="" unoptimized className="aspect-video w-full object-cover" />}
                 <div className="p-5">
                   <p className="text-sm text-muted">{venue.city} · {venue.country}</p>
                   <h3 className="mt-1 text-xl font-semibold">
-                    <Link href={`/venue/${venue.partnerId}`} className="hover:underline">{venue.name}</Link>
+                    <Link href={`/venue/${venue.partnerId}`} className="inline-flex min-h-11 items-center hover:underline">{venue.name}</Link>
                   </h3>
                   {venue.music.length > 0 && <p className="mt-2 text-sm text-muted">{venue.music.join(" · ")}</p>}
                   {venue.event && <p className="mt-3 text-sm">{calendarDate.format(new Date(venue.event.date))} · {venue.event.name}</p>}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -78,6 +78,15 @@ function Booking() {
   }, [tables]);
 
   const selectedTable = tables?.find((t) => t.number === selectedTableNumber);
+  const summary = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selectedTableNumber === null || !window.matchMedia("(max-width: 639px)").matches) return;
+    summary.current?.focus({ preventScroll: true });
+    summary.current?.scrollIntoView({
+      block: "nearest",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+    });
+  }, [selectedTableNumber]);
 
   async function handleConfirm() {
     if (!token || !partnerId || !selectedTable) return;
@@ -126,7 +135,7 @@ function Booking() {
   return (
     <main className="flex-1 px-4 py-10 sm:px-6 sm:py-16">
       <div className="mx-auto max-w-3xl">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <Link href="/" className="font-display text-xl sm:text-2xl font-bold">
             TABLE <span className="gradient-text">NOW</span>
           </Link>
@@ -134,7 +143,7 @@ function Booking() {
             <LanguageSwitcher />
             <Link
               href="/client/reservations"
-              className="text-sm text-muted hover:text-text"
+              className="inline-flex min-h-11 items-center text-sm text-muted hover:text-text"
             >
               {t("book.myReservations")}
             </Link>
@@ -194,6 +203,22 @@ function Booking() {
           </span>
         </div>
 
+        {tables && (
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:hidden">
+            {tables.map((table) => {
+              const unavailable = reservedSet.has(String(table.number));
+              const selected = selectedTableNumber === table.number;
+              return <button key={table._id} type="button" aria-pressed={selected}
+                disabled={unavailable || confirming || !!paymentSecret}
+                onClick={() => setSelectedTableNumber(table.number)}
+                className={`card flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2 text-start text-sm disabled:opacity-50 ${selected ? "border-blue bg-surface-alt" : ""}`}>
+                <span className="font-semibold">Table {table.number} {table.zone === "vip" && <span className="text-blue">VIP</span>}</span>
+                <span className="text-muted">{table.priceEur} €</span>
+              </button>;
+            })}
+          </div>
+        )}
+
         {/* Floor plan grid */}
         <div className="mt-6 overflow-x-auto">
           {!grid && (
@@ -203,7 +228,7 @@ function Booking() {
           )}
           {grid && (
             <div
-              className="grid gap-1 sm:gap-2 w-full"
+              className="hidden w-full gap-2 sm:grid"
               style={{
                 gridTemplateColumns: `repeat(${grid[0]?.length ?? 10}, minmax(0, 1fr))`,
               }}
@@ -244,7 +269,7 @@ function Booking() {
 
         {/* Selected table detail + confirm */}
         {selectedTable && (
-          <div className="card mt-6 p-5">
+          <div ref={summary} tabIndex={-1} className="card mt-6 p-5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-semibold">
@@ -270,7 +295,7 @@ function Booking() {
                 max={selectedTable.capacity}
                 value={partySize}
                 onChange={(e) => setPartySize(Number(e.target.value))}
-                className="input-field w-20 px-2 py-1.5 text-sm"
+                className="input-field min-h-11 w-20 px-2 py-1.5 text-base"
               />
             </div>
 
@@ -288,7 +313,7 @@ function Booking() {
             <button
               onClick={handleConfirm}
               disabled={confirming || !!paymentSecret || !date || !reservedTableIds || reservedSet.has(String(selectedTable.number)) || !Number.isInteger(partySize) || partySize < 1 || partySize > selectedTable.capacity}
-              className="btn-primary mt-4 w-full py-2.5 text-sm disabled:opacity-60"
+              className="btn-primary mt-4 min-h-12 w-full py-2.5 text-sm disabled:opacity-60"
             >
               {confirming
                 ? t("book.preparing")

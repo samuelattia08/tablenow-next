@@ -129,3 +129,23 @@ body {
     url("/nightlife-hero.webp") center / cover no-repeat,
     var(--bg);
 }
+
+.hero-footer {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 639px) {
+  .nightlife-hero {
+    background:
+      linear-gradient(180deg, rgb(7 12 27 / 74%) 0%, rgb(7 12 27 / 17%) 30%, rgb(7 12 27 / 86%) 66%, var(--bg) 92%),
+      url("/nightlife-hero.webp") 59% center / cover no-repeat,
+      var(--bg);
+  }
+}
+
+.checkout-sheet {
+  max-height: calc(100dvh - 1rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
