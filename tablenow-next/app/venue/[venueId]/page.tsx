@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { api } from "@/convex/_generated/api";
 import { useLanguage } from "@/app/LanguageProvider";
-import { bookingHref } from "@/lib/client-navigation";
+import { admissionHref, bookingHref } from "@/lib/client-navigation";
 
 export default function VenuePage() {
   const { venueId } = useParams<{ venueId: string }>();
@@ -71,6 +71,8 @@ export default function VenuePage() {
             <p className="text-sm text-muted">{date.format(new Date(event.date))} · {event.startTime}</p>
             <h3 className="mt-1 text-lg font-semibold">{event.name}</h3>
             {event.description && <p className="mt-1 text-muted">{event.description}</p>}
+            {event.admission && <Link className="mt-2 me-4 inline-flex min-h-11 items-center text-blue hover:underline"
+              href={admissionHref(event._id)}>{t("admission.title")} · {price.format(event.admission.priceCents / 100)}</Link>}
             {venue.tableFrom !== null && <Link className="mt-2 inline-flex min-h-11 items-center text-blue hover:underline"
               href={bookingHref(venue.partnerId, event.date, 0)}>{t("venue.book")}</Link>}
           </article>)}

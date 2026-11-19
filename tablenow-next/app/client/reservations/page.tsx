@@ -78,7 +78,7 @@ export default function ClientReservationsPage() {
               <div key={r._id} className="card p-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="font-medium">
-                    Table {r.tableId} · {r.zone.toUpperCase()}
+                    {r.eventId ? r.eventName ?? t("admission.title") : `Table ${r.tableId} · ${r.zone.toUpperCase()}`}
                   </p>
                   <p className="text-sm text-muted">
                     {r.date} · {r.partySize} {t("reservations.people")}

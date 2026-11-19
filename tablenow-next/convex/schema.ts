@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { venueFields } from "./venueFields";
+import { admissionValidator, venueFields } from "./venueFields";
 
 export default defineSchema({
   authLimits: defineTable({
@@ -57,6 +57,7 @@ export default defineSchema({
     startTime: v.string(),
     description: v.string(),
     published: v.boolean(),
+    admission: v.optional(admissionValidator),
   })
     .index("by_partner_date", ["partnerId", "date"])
     .index("by_partner_published_date", ["partnerId", "published", "date"]),
@@ -64,6 +65,8 @@ export default defineSchema({
   reservations: defineTable({
     clientId: v.id("clients"),
     partnerId: v.id("partners"),
+    eventId: v.optional(v.id("venueEvents")),
+    eventName: v.optional(v.string()),
     tableId: v.string(),
     zone: v.string(), // "vip" | "dj" | "wc"
     date: v.string(), // ISO date, e.g. "2026-07-18"
@@ -75,7 +78,8 @@ export default defineSchema({
   })
     .index("by_client", ["clientId"])
     .index("by_partner_date", ["partnerId", "date"])
-    .index("by_payment_intent", ["stripePaymentIntentId"]),
+    .index("by_payment_intent", ["stripePaymentIntentId"])
+    .index("by_event", ["eventId"]),
 
   tables: defineTable({
     partnerId: v.id("partners"),

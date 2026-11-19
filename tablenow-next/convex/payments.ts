@@ -64,6 +64,39 @@ export const createPaymentIntent = action({
   },
 });
 
+export const createAdmissionPayment = action({
+  args: { token: v.string(), eventId: v.id("venueEvents"), quantity: v.number(), unitPriceCents: v.number() },
+  returns: v.object({ clientSecret: v.union(v.string(), v.null()) }),
+  handler: async (ctx, args) => {
+    const clientId = await ctx.runQuery(internal.sessions.authorizeClient, { token: args.token });
+    const offer = await ctx.runQuery(internal.admission.checkoutOffer, { eventId: args.eventId });
+    if (!offer || !Number.isInteger(args.quantity) || args.quantity < 1 || args.quantity > Math.min(10, offer.available)) {
+      throw new ConvexError("Ce nombre de places n’est plus disponible.");
+    }
+    if (offer.priceCents !== args.unitPriceCents) throw new ConvexError("Le tarif a changé. Vérifie le nouveau montant.");
+    const payment = await getStripe().paymentIntents.create({
+      amount: offer.priceCents * args.quantity,
+      currency: "eur",
+      capture_method: "manual",
+      payment_method_types: ["card"],
+      metadata: {
+        integration: "tablenow_manual_capture",
+        clientId,
+        partnerId: offer.partnerId,
+        eventId: args.eventId,
+        date: offer.date,
+        partySize: String(args.quantity),
+        zone: "admission",
+      },
+      description: `TABLE NOW — ${offer.name}`,
+    });
+    await ctx.scheduler.runAfter(checkoutLifetime, internal.payments.recoverCheckout, {
+      paymentIntentId: payment.id, attempt: 0,
+    });
+    return { clientSecret: payment.client_secret };
+  },
+});
+
 function isTableNowPayment(payment: Stripe.PaymentIntent) {
   return payment.capture_method === "manual" &&
     payment.currency === "eur" &&
@@ -88,7 +121,8 @@ async function completeCheckout(
   const reservation = await ctx.runMutation(internal.reservations.holdForCapture, {
     clientId: metadata.clientId as Id<"clients">,
     partnerId: metadata.partnerId as Id<"partners">,
-    tableId: metadata.tableNumber,
+    tableId: metadata.eventId ? "" : metadata.tableNumber,
+    eventId: metadata.eventId as Id<"venueEvents"> | undefined,
     zone: metadata.zone,
     date: metadata.date,
     partySize: Number(metadata.partySize),

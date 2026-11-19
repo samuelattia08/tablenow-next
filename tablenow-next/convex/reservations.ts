@@ -1,6 +1,7 @@
 import { internalMutation, query } from "./_generated/server";
 import { requireAccount } from "./sessions";
 import { closedDate } from "./availability";
+import { availableOffer } from "./admission";
 import { v } from "convex/values";
 
 export const holdForCapture = internalMutation({
@@ -8,6 +9,7 @@ export const holdForCapture = internalMutation({
     clientId: v.id("clients"),
     partnerId: v.id("partners"),
     tableId: v.string(),
+    eventId: v.optional(v.id("venueEvents")),
     zone: v.string(),
     date: v.string(),
     partySize: v.number(),
@@ -26,6 +28,7 @@ export const holdForCapture = internalMutation({
         prior.clientId === args.clientId &&
         prior.partnerId === args.partnerId &&
         prior.tableId === args.tableId &&
+        prior.eventId === args.eventId &&
         prior.date === args.date &&
         prior.partySize === args.partySize &&
         prior.zone === args.zone &&
@@ -36,24 +39,34 @@ export const holdForCapture = internalMutation({
       throw new Error("Ce paiement a déjà été utilisé.");
     }
 
-    if (await closedDate(ctx, args.partnerId, args.date)) return null;
+    let eventName: string | undefined;
+    if (args.eventId) {
+      const offer = await availableOffer(ctx, args.eventId);
+      if (!offer || offer.partnerId !== args.partnerId || offer.date !== args.date ||
+          !Number.isSafeInteger(args.partySize) || args.partySize < 1 || args.partySize > offer.available ||
+          Math.round(args.priceEur * 100) !== offer.priceCents * args.partySize) return null;
+      eventName = offer.name;
+    } else {
+      if (await closedDate(ctx, args.partnerId, args.date)) return null;
 
-    const sameDatePartner = await ctx.db
-      .query("reservations")
-      .withIndex("by_partner_date", (q) =>
-        q.eq("partnerId", args.partnerId).eq("date", args.date)
-      )
-      .filter((q) => q.neq(q.field("status"), "cancelled"))
-      .collect();
+      const sameDatePartner = await ctx.db
+        .query("reservations")
+        .withIndex("by_partner_date", (q) =>
+          q.eq("partnerId", args.partnerId).eq("date", args.date)
+        )
+        .filter((q) => q.neq(q.field("status"), "cancelled"))
+        .collect();
 
-    const alreadyTaken = sameDatePartner.some((r) => r.tableId === args.tableId);
-    if (alreadyTaken) return null;
+      const alreadyTaken = sameDatePartner.some((r) => r.tableId === args.tableId);
+      if (alreadyTaken) return null;
+    }
 
     const client = await ctx.db.get(args.clientId);
     if (!client) return null;
 
     const reservationId = await ctx.db.insert("reservations", {
       ...args,
+      eventName,
       status: "pending",
       createdAt: Date.now(),
     });
@@ -120,7 +133,7 @@ export const listReservedTableNumbers = query({
       )
       .filter((q) => q.neq(q.field("status"), "cancelled"))
       .collect();
-    return reservations.map((r) => r.tableId);
+    return reservations.filter((r) => !r.eventId).map((r) => r.tableId);
   },
 });
 

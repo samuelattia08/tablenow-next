@@ -6,6 +6,12 @@ const accountRoutes = [
 ] as const;
 
 type AccountRoute = (typeof accountRoutes)[number];
+type Destination = AccountRoute | `/client/book?${string}` | `/client/admission?event=${string}`;
+
+export function admissionHref(event: string | null) {
+  return event && /^[a-z0-9]{1,64}$/i.test(event) ? `/client/admission?event=${event}` as const : "/client/reservations";
+}
+
 type AuthScreen = "login" | "signup";
 
 export function bookingHref(venue: string | null, date: string | null, guests: number) {
@@ -16,7 +22,8 @@ export function bookingHref(venue: string | null, date: string | null, guests: n
   return params.size ? `/client/book?${params}` as const : "/client/book";
 }
 
-export function clientDestination(value: string | null): AccountRoute | `/client/book?${string}` {
+export function clientDestination(value: string | null): Destination {
+  if (value?.startsWith("/client/admission?")) return admissionHref(new URLSearchParams(value.split("?")[1]).get("event"));
   const known = accountRoutes.find((route) => route === value);
   if (known) return known;
   if (value?.startsWith("/client/book?")) {
@@ -27,6 +34,6 @@ export function clientDestination(value: string | null): AccountRoute | `/client
   return "/client/reservations";
 }
 
-export function clientAuthHref(screen: AuthScreen, destination: AccountRoute | `/client/book?${string}`) {
+export function clientAuthHref(screen: AuthScreen, destination: Destination) {
   return `/client/${screen}?next=${encodeURIComponent(destination)}`;
 }

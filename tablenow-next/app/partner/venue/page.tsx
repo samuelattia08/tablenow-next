@@ -34,13 +34,20 @@ export default function PartnerVenuePage() {
   async function submit(e: FormEvent<HTMLFormElement>, isEvent: boolean) {
     e.preventDefault();
     if (!token || pending) return;
-    const data = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const data = new FormData(form);
     const read = (field: string) => String(data.get(field) ?? "");
     setPending(true);
     setNotice(undefined);
     try {
       if (isEvent) {
-        await saveEvent({ token, ...event });
+        const capacity = read("ticketCapacity");
+        const price = read("ticketPrice");
+        if (Boolean(capacity) !== Boolean(price)) throw new Error("Renseigne le stock et le tarif des billets.");
+        await saveEvent({ token, ...event, admission: capacity ? {
+          capacity: Number(capacity), priceCents: Math.round(Number(price) * 100),
+        } : undefined });
+        form.reset();
         setEvent(blankEvent);
       } else {
         const text = Object.fromEntries(Object.keys(textFields).map((key) => [key, read(key)])) as Pick<Profile, keyof typeof textFields>;
@@ -98,7 +105,7 @@ export default function PartnerVenuePage() {
         <label className="flex min-h-11 items-center gap-2"><input name="published" type="checkbox" defaultChecked={profile?.published} /> Publier la fiche</label>
         <button className="btn-primary min-h-11 px-5" disabled={pending}>Enregistrer la fiche</button>
       </form>
-      <form className="card mt-6 grid gap-4 p-5 sm:grid-cols-2" onSubmit={(e) => submit(e, true)}>
+      <form className="card mt-6 grid gap-4 p-5 sm:grid-cols-2" key={event.eventId ?? "new"} onSubmit={(e) => submit(e, true)}>
         <h2 className="text-xl font-semibold sm:col-span-2">Calendrier des soirées</h2>
         <label className="grid gap-1.5 text-sm">Nom de la soirée
           <input required className={input} value={event.name} onChange={(e) => setEvent({ ...event, name: e.target.value })} />
@@ -111,6 +118,13 @@ export default function PartnerVenuePage() {
         </label>
         <label className="grid gap-1.5 text-sm">Programme et DJ
           <textarea className={input} value={event.description} onChange={(e) => setEvent({ ...event, description: e.target.value })} />
+        </label>
+        <label className="grid gap-1.5 text-sm">Stock de billets (facultatif)
+          <input className={input} name="ticketCapacity" type="number" min="1" max="5000" defaultValue={event.admission?.capacity} />
+        </label>
+        <label className="grid gap-1.5 text-sm">Prix d’un billet (€)
+          <input className={input} name="ticketPrice" type="number" min="0.50" max="1000" step="0.01"
+            defaultValue={event.admission ? event.admission.priceCents / 100 : undefined} />
         </label>
         <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={event.published} onChange={(e) => setEvent({ ...event, published: e.target.checked })} /> Publier la soirée</label>
         <button className="btn-primary min-h-11 px-5" disabled={pending}>{event.eventId ? "Enregistrer la soirée" : "Ajouter une soirée"}</button>
@@ -133,10 +147,10 @@ export default function PartnerVenuePage() {
           <button className="min-h-11 text-blue" type="button" disabled={pending} onClick={() => changeAvailability(date, false)}>Rouvrir</button>
         </div>)}
       </section>
-      {events?.map(({ _id, name, date, startTime, description, published }) =>
+      {events?.map(({ _id, name, date, startTime, description, published, admission }) =>
         <article key={_id} className="card mt-3 flex flex-wrap items-center justify-between gap-3 p-4">
           <div><h3 className="font-semibold">{name}</h3><p className="text-sm text-muted">{date} · {startTime} · {published ? "Publiée" : "Brouillon"}</p></div>
-          <button type="button" className="min-h-11 text-blue" onClick={() => setEvent({ eventId: _id, name, date, startTime, description, published })}>Modifier</button>
+          <button type="button" className="min-h-11 text-blue" onClick={() => setEvent({ eventId: _id, name, date, startTime, description, published, admission })}>Modifier</button>
         </article>)}
     </>}
   </main>;

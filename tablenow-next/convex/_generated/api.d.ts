@@ -13,6 +13,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as admission from "../admission.js";
 import type * as auth from "../auth.js";
 import type * as authLimits from "../authLimits.js";
 import type * as availability from "../availability.js";
@@ -38,6 +39,7 @@ import type * as venues from "../venues.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  admission: typeof admission;
   auth: typeof auth;
   authLimits: typeof authLimits;
   availability: typeof availability;

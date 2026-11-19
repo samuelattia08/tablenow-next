@@ -51,7 +51,7 @@ describe("server-side access and inventory", () => {
 });
 
 it("matches published venues and events by destination, music, and travel dates", async () => {
-  const { t, client, partnerId } = await setup();
+  const { t, client, other, partnerId } = await setup();
   const token = "b".repeat(64);
   const { createHash } = await import("node:crypto");
   await t.run((ctx) => ctx.db.insert("accountSessions", {
@@ -66,8 +66,8 @@ it("matches published venues and events by destination, music, and travel dates"
   };
   await expect(t.mutation(api.venues.save, { token: client.token, profile })).rejects.toThrow();
   await t.mutation(api.venues.save, { token, profile });
-  await t.mutation(api.venueEvents.save, {
-    token, name: "Fixture party", date: "2027-12-31", startTime: "23:00", description: "", published: true,
+  const eventId = await t.mutation(api.venueEvents.save, {
+    token, admission: { capacity: 2, priceCents: 1500 }, name: "Fixture party", date: "2027-12-31", startTime: "23:00", description: "", published: true,
   });
   const filters = {
     country: "Hungary", city: "Budapest", music: "House", from: "2027-12-30", to: "2028-01-02",
@@ -81,6 +81,20 @@ it("matches published venues and events by destination, music, and travel dates"
   await expect(t.mutation(internal.reservations.holdForCapture, booking)).resolves.toBeNull();
   await t.mutation(api.availability.setClosed, { token, date: "2027-12-31", closed: false });
   await expect(t.mutation(internal.reservations.holdForCapture, booking)).resolves.toMatchObject({ status: "pending" });
+  const ticketHold = { eventId, partnerId, partySize: 2, date: "2027-12-31",
+    tableId: "", zone: "admission", priceEur: 30 };
+  expect(await t.query(api.admission.offer, { event: eventId })).toMatchObject({ available: 2 });
+  const ticketRequests = [client, other].map((customer, index) => ({
+    ...ticketHold, clientId: customer.clientId, stripePaymentIntentId: `fixture-ticket-${index}`,
+  }));
+  const ticketHolds = await Promise.all(ticketRequests.map((request) =>
+    t.mutation(internal.reservations.holdForCapture, request)));
+  expect(ticketHolds.filter(Boolean)).toHaveLength(1);
+  expect(await t.query(api.admission.offer, { event: eventId })).toMatchObject({ available: 0 });
+  await t.mutation(internal.reservations.settleCapture, {
+    paymentIntentId: ticketRequests[ticketHolds.findIndex(Boolean)].stripePaymentIntentId, status: "cancelled",
+  });
+  expect(await t.query(api.admission.offer, { event: eventId })).toMatchObject({ available: 2 });
   await t.mutation(api.venues.save, { token, profile: { ...profile, published: false } });
   expect(await t.query(api.venues.detail, { venueId: partnerId })).toBeNull();
   expect(await t.query(api.venues.search, filters)).toEqual([]);

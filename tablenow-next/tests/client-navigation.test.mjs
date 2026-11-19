@@ -17,3 +17,8 @@ test("defaults to reservations for unsafe or unsupported destinations", () => {
     assert.equal(clientDestination(route), "/client/reservations");
   }
 });
+
+test("keeps an admission event through authentication and drops extra inputs", () => {
+  assert.equal(clientDestination("/client/admission?event=event123&next=https://example.com"), "/client/admission?event=event123");
+  assert.equal(clientDestination("/client/admission?event=https://example.com"), "/client/reservations");
+});

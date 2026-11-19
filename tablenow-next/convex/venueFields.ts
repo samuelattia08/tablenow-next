@@ -20,3 +20,5 @@ export const venueFields = {
   entryPriceEur: v.optional(v.number()),
   published: v.boolean(),
 };
+
+export const admissionValidator = v.object({ capacity: v.number(), priceCents: v.number() });

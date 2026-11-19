@@ -16,6 +16,13 @@ type Dict = Record<string, string>;
 
 export const translations: Record<Lang, Dict> = {
   fr: {
+    "admission.title": "Billets d’entrée",
+    "admission.soldOut": "Les billets sont épuisés.",
+    "admission.unavailable": "La billetterie est fermée pour cette soirée.",
+    "admission.quantity": "Nombre de billets",
+    "admission.pay": "Payer",
+    "admission.retry": "Impossible de lancer le paiement. Réessaie.",
+    "admission.check": "Vérifie tes réservations avant de réessayer.",
     "explore.title": "Explore la vie nocturne",
     "explore.subtitle": "Trouve un club ou une soirée selon ta destination et tes dates.",
     "explore.country": "Pays",
@@ -111,6 +118,13 @@ export const translations: Record<Lang, Dict> = {
     "nav.language": "Langue",
   },
   en: {
+    "admission.title": "Admission tickets",
+    "admission.soldOut": "Tickets are sold out.",
+    "admission.unavailable": "Ticket sales for this event are closed.",
+    "admission.quantity": "Tickets",
+    "admission.pay": "Pay",
+    "admission.retry": "Could not start checkout. Try again.",
+    "admission.check": "Check your reservations before trying again.",
     "explore.title": "Discover nightlife",
     "explore.subtitle": "Find clubs and events for your destination and dates.",
     "explore.country": "Country",
