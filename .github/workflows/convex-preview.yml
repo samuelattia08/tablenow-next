@@ -1,0 +1,27 @@
+name: TableNow Convex Preview
+on:
+  push:
+    branches: [recovery-2026-11-18]
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tablenow-next
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Deploy and build against Preview
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: |
+          if [[ "$CONVEX_DEPLOY_KEY" != preview:* ]]; then
+            echo "A Convex Preview deploy key is required."
+            exit 1
+          fi
+          npx convex deploy --preview-create tablenow-recovery --cmd 'npm run build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL
